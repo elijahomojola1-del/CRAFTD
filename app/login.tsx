@@ -8,13 +8,16 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { API_BASE_URL } from '../config/api';
+import { registerForPushNotificationsAsync } from '../utils/registerForPushNotifications';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     try {
@@ -41,6 +44,23 @@ export default function LoginScreen() {
       console.log('Login success:', data);
 
       await SecureStore.setItemAsync('accessToken', data.access);
+
+      try {
+        const pushToken = await registerForPushNotificationsAsync();
+        if (pushToken) {
+          await fetch(`${API_BASE_URL}/app/save-push-token/`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${data.access}`,
+            },
+            body: JSON.stringify({ push_token: pushToken }),
+          });
+        }
+      } catch (pushError) {
+        console.log('Push registration failed:', pushError);
+      }
+
       router.replace('/home');
     } catch (error) {
       console.log('Network error:', error);
@@ -61,16 +81,29 @@ export default function LoginScreen() {
         placeholderTextColor="#999"
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#999"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      {/* Password field with show/hide toggle */}
+      <View style={styles.passwordWrapper}>
+        <TextInput
+          style={styles.passwordInput}
+          placeholder="Password"
+          placeholderTextColor="#999"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+        />
+        <TouchableOpacity
+          style={styles.eyeButton}
+          onPress={() => setShowPassword((prev) => !prev)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
         <Text style={styles.primaryButtonText}>Log In</Text>
@@ -113,6 +146,27 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 16,
     fontSize: 15,
+  },
+  passwordWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2C2C2E',
+    borderRadius: 10,
+    marginBottom: 16,
+    paddingRight: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    color: '#FAF7F2',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+  },
+  eyeButton: {
+    padding: 4,
+  },
+  eyeText: {
+    fontSize: 18,
   },
   primaryButton: {
     backgroundColor: '#F5A623',

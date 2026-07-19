@@ -88,7 +88,7 @@ const toISODate = (input: string) => {
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.title}>Book This Gig</Text>
           <Text style={styles.gigTitle}>{gigTitle}</Text>
-          <Text style={styles.gigPrice}>₦{gigPrice}</Text>
+          <Text style={styles.gigPrice}>Price negotiable — discuss with provider</Text>
 
           <Text style={styles.label}>Proposed Date</Text>
           <TextInput
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   title: { color: '#FAF7F2', fontSize: 22, fontWeight: '700', marginTop: 16, marginBottom: 4 },
   gigTitle: { color: '#FAF7F2', fontSize: 16, marginBottom: 2 },
-  gigPrice: { color: '#F5A623', fontSize: 18, fontWeight: '700', marginBottom: 24 },
+  gigPrice: { color: '#999', fontSize: 14, fontStyle: 'italic', marginBottom: 24 },
   label: { color: '#F5A623', fontSize: 13, fontWeight: '700', marginBottom: 6, marginTop: 12 },
   input: {
     backgroundColor: '#2C2C2E',

@@ -1,16 +1,16 @@
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { API_BASE_URL } from "../config/api";
 
@@ -31,6 +31,8 @@ const CATEGORIES = [
   { value: "health_fitness", label: "Health & Fitness" },
 ];
 
+const MAX_GIGS = 3;
+
 export default function AddSkillScreen() {
   const router = useRouter();
 
@@ -41,7 +43,41 @@ export default function AddSkillScreen() {
   const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [checkingLimit, setCheckingLimit] = useState(true);
+  const [gigCount, setGigCount] = useState(0);
+  const limitReached = gigCount >= MAX_GIGS;
+
+  const checkGigLimit = async () => {
+    try {
+      const token = await SecureStore.getItemAsync("accessToken");
+      const res = await fetch(`${API_BASE_URL}/app/gigs/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const count = Array.isArray(data) ? data.length : data.count ?? 0;
+        setGigCount(count);
+      }
+    } catch (err) {
+      console.log("Failed to check gig limit:", err);
+    } finally {
+      setCheckingLimit(false);
+    }
+  };
+
+  useEffect(() => {
+    checkGigLimit();
+  }, []);
+
   const handleSubmit = async () => {
+    if (limitReached) {
+      Alert.alert(
+        "Skill limit reached",
+        `You can only have ${MAX_GIGS} skills at a time. Remove one before adding another.`
+      );
+      return;
+    }
     if (!title.trim()) {
       Alert.alert("Missing title", "Please enter a title for your skill.");
       return;
@@ -62,7 +98,6 @@ export default function AddSkillScreen() {
     setSubmitting(true);
     try {
       const token = await SecureStore.getItemAsync("accessToken");
-console.log("Token for gig POST:", token);
 
       const response = await fetch(`${API_BASE_URL}/app/gigs/`, {
         method: "POST",
@@ -98,6 +133,16 @@ console.log("Token for gig POST:", token);
     }
   };
 
+  if (checkingLimit) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.centered}>
+          <ActivityIndicator color="#F5A623" size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -109,24 +154,39 @@ console.log("Token for gig POST:", token);
           <View style={{ width: 50 }} />
         </View>
 
+        {limitReached ? (
+          <View style={styles.limitBanner}>
+            <Text style={styles.limitTitle}>You've reached your skill limit</Text>
+            <Text style={styles.limitSub}>
+              Each profile can have up to {MAX_GIGS} skills. Remove one from "My Skills" to add a new one.
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.limitCounter}>
+            {gigCount} / {MAX_GIGS} skills used
+          </Text>
+        )}
+
         <Text style={styles.label}>Title</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, limitReached && styles.inputDisabled]}
           placeholder="e.g. Custom Suit Tailoring"
           placeholderTextColor="#999"
           value={title}
           onChangeText={setTitle}
+          editable={!limitReached}
         />
 
         <Text style={styles.label}>Description</Text>
         <TextInput
-          style={[styles.input, styles.textArea]}
+          style={[styles.input, styles.textArea, limitReached && styles.inputDisabled]}
           placeholder="Describe what you offer..."
           placeholderTextColor="#999"
           value={description}
           onChangeText={setDescription}
           multiline
           numberOfLines={4}
+          editable={!limitReached}
         />
 
         <Text style={styles.label}>Category</Text>
@@ -137,7 +197,8 @@ console.log("Token for gig POST:", token);
               <TouchableOpacity
                 key={cat.value}
                 style={[styles.tile, selected && styles.tileSelected]}
-                onPress={() => setCategory(cat.value)}
+                onPress={() => !limitReached && setCategory(cat.value)}
+                disabled={limitReached}
               >
                 <Text
                   style={[
@@ -154,32 +215,39 @@ console.log("Token for gig POST:", token);
 
         <Text style={styles.label}>Price (₦)</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, limitReached && styles.inputDisabled]}
           placeholder="e.g. 5000"
           placeholderTextColor="#999"
           value={price}
           onChangeText={setPrice}
           keyboardType="numeric"
+          editable={!limitReached}
         />
 
         <Text style={styles.label}>Location</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, limitReached && styles.inputDisabled]}
           placeholder="e.g. Lagos"
           placeholderTextColor="#999"
           value={location}
           onChangeText={setLocation}
+          editable={!limitReached}
         />
 
         <TouchableOpacity
-          style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+          style={[
+            styles.submitButton,
+            (submitting || limitReached) && styles.submitButtonDisabled,
+          ]}
           onPress={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || limitReached}
         >
           {submitting ? (
             <ActivityIndicator color="#1C1C1E" />
           ) : (
-            <Text style={styles.submitButtonText}>Post Skill</Text>
+            <Text style={styles.submitButtonText}>
+              {limitReached ? "Limit Reached" : "Post Skill"}
+            </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -189,6 +257,7 @@ console.log("Token for gig POST:", token);
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   container: { padding: 20, paddingBottom: 40 },
   header: {
     flexDirection: "row",
@@ -198,6 +267,22 @@ const styles = StyleSheet.create({
   },
   backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
   title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  limitCounter: {
+    color: "#999",
+    fontSize: 13,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  limitBanner: {
+    backgroundColor: "#2A2A2E",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#F5A623",
+    padding: 16,
+    marginBottom: 16,
+  },
+  limitTitle: { color: "#F5A623", fontSize: 15, fontWeight: "700", marginBottom: 6 },
+  limitSub: { color: "#CFCFCF", fontSize: 13, lineHeight: 18 },
   label: {
     color: "#FAF7F2",
     fontSize: 14,
@@ -213,6 +298,7 @@ const styles = StyleSheet.create({
     color: "#FAF7F2",
     fontSize: 15,
   },
+  inputDisabled: { opacity: 0.4 },
   textArea: { height: 100, textAlignVertical: "top" },
   grid: {
     flexDirection: "row",

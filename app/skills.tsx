@@ -54,8 +54,12 @@ export default function SkillsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={styles.backText}>{"< Back"}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>My Skills</Text>
         <View style={{ width: 50 }} />
@@ -87,7 +91,7 @@ export default function SkillsScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => router.push(`/gig/${item.id}`)}
+              onPress={() => router.push(`/gig/${item.id}?mine=true`)}
             >
               {item.image ? (
                 <Image source={{ uri: item.image }} style={styles.cardImage} />
@@ -123,6 +127,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingRight: 12,
   },
   backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
   title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },

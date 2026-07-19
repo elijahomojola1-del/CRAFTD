@@ -1,16 +1,18 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import React, { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Linking,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import ReviewModal from '../components/ReviewModal';
 import { API_BASE_URL } from '../config/api';
 
 interface Booking {
@@ -19,14 +21,14 @@ interface Booking {
     id: number;
     title: string;
   };
-  client: {
-    id: number;
-    username: string;
-  };
+  client: number;
+  client_username: string;
+  client_phone?: string;
   status: 'pending' | 'accepted' | 'declined' | 'completed' | 'cancelled';
   message: string;
   proposed_date: string;
   created_at: string;
+  review_id: number | null;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -38,10 +40,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ReceivedBookingsScreen() {
+  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
+  const [messagingId, setMessagingId] = useState<number | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<Booking | null>(null);
 
   const fetchBookings = async () => {
     try {
@@ -81,7 +87,7 @@ export default function ReceivedBookingsScreen() {
 
   const handleStatusUpdate = async (
     bookingId: number,
-    newStatus: 'accepted' | 'declined'
+    newStatus: 'accepted' | 'declined' | 'completed'
   ) => {
     setUpdatingId(bookingId);
     try {
@@ -115,6 +121,119 @@ export default function ReceivedBookingsScreen() {
     }
   };
 
+  const confirmMarkComplete = (bookingId: number) => {
+    Alert.alert(
+      'Mark this job as complete?',
+      'The client will be able to leave a review once this is marked complete.',
+      [
+        { text: 'Back', style: 'cancel' },
+        {
+          text: 'Mark Complete',
+          onPress: () => handleStatusUpdate(bookingId, 'completed'),
+        },
+      ]
+    );
+  };
+
+  const handleCall = (phone?: string) => {
+    if (!phone) {
+      Alert.alert('No phone number', 'This client has not added a phone number yet.');
+      return;
+    }
+    Linking.openURL(`tel:${phone}`);
+  };
+
+  const handleWhatsApp = (phone?: string) => {
+    if (!phone) {
+      Alert.alert('No phone number', 'This client has not added a phone number yet.');
+      return;
+    }
+    const cleaned = phone.replace(/[^\d+]/g, '');
+    Linking.openURL(`https://wa.me/${cleaned}`).catch(() => {
+      Alert.alert('WhatsApp not available', 'Could not open WhatsApp on this device.');
+    });
+  };
+
+  const handleMessage = async (booking: Booking) => {
+    try {
+      setMessagingId(booking.id);
+      const token = await SecureStore.getItemAsync('accessToken');
+
+      const response = await fetch(`${API_BASE_URL}/app/conversations/start/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ booking_id: booking.id }),
+      });
+
+      if (!response.ok) {
+        Alert.alert(
+          "Can't message yet",
+          'Messaging is only available once this booking is accepted.'
+        );
+        return;
+      }
+
+      const conversation = await response.json();
+
+      router.push({
+        pathname: '/conversation/[id]',
+        params: {
+          id: String(conversation.id),
+          otherUsername: booking.client_username,
+        },
+      });
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      Alert.alert('Error', 'Something went wrong. Check your connection.');
+    } finally {
+      setMessagingId(null);
+    }
+  };
+
+  const confirmDeleteReview = (reviewId: number) => {
+    Alert.alert(
+      'Delete this review?',
+      'This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => handleDeleteReview(reviewId),
+        },
+      ]
+    );
+  };
+
+  const handleDeleteReview = async (reviewId: number) => {
+    setDeletingReviewId(reviewId);
+    try {
+      const token = await SecureStore.getItemAsync('accessToken');
+      const response = await fetch(`${API_BASE_URL}/app/reviews/${reviewId}/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete review');
+      }
+
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.review_id === reviewId ? { ...b, review_id: null } : b
+        )
+      );
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      Alert.alert('Error', 'Could not delete review. Please try again.');
+    } finally {
+      setDeletingReviewId(null);
+    }
+  };
+
   const renderBooking = ({ item }: { item: Booking }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -129,7 +248,7 @@ export default function ReceivedBookingsScreen() {
         </View>
       </View>
 
-      <Text style={styles.clientName}>From: {item.client.username}</Text>
+      <Text style={styles.clientName}>From: {item.client_username}</Text>
 
       {item.message ? (
         <Text style={styles.message}>{item.message}</Text>
@@ -164,11 +283,84 @@ export default function ReceivedBookingsScreen() {
             disabled={updatingId === item.id}
           >
             {updatingId === item.id ? (
-              <ActivityIndicator color="#FAF7F2" size="small" />
+              <ActivityIndicator color="#1C1C1E" size="small" />
             ) : (
               <Text style={styles.acceptButtonText}>Accept</Text>
             )}
           </TouchableOpacity>
+        </View>
+      )}
+
+      {item.status === 'accepted' && (
+        <>
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.callButton]}
+              onPress={() => handleCall(item.client_phone)}
+            >
+              <Text style={styles.callButtonText}>📞 Call</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionButton, styles.whatsappButton]}
+              onPress={() => handleWhatsApp(item.client_phone)}
+            >
+              <Text style={styles.whatsappButtonText}>💬 WhatsApp</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.messageButton]}
+              onPress={() => handleMessage(item)}
+              disabled={messagingId === item.id}
+            >
+              {messagingId === item.id ? (
+                <ActivityIndicator color="#1C1C1E" size="small" />
+              ) : (
+                <Text style={styles.messageButtonText}>💬 Message</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.completeButton]}
+              onPress={() => confirmMarkComplete(item.id)}
+              disabled={updatingId === item.id}
+            >
+              {updatingId === item.id ? (
+                <ActivityIndicator color="#FAF7F2" size="small" />
+              ) : (
+                <Text style={styles.completeButtonText}>Mark Complete</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
+      {item.status === 'completed' && (
+        <View style={styles.actionRow}>
+          {item.review_id ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteReviewButton]}
+              onPress={() => confirmDeleteReview(item.review_id!)}
+              disabled={deletingReviewId === item.review_id}
+            >
+              {deletingReviewId === item.review_id ? (
+                <ActivityIndicator color="#E74C3C" size="small" />
+              ) : (
+                <Text style={styles.deleteReviewButtonText}>Delete Review</Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.reviewButton]}
+              onPress={() => setReviewTarget(item)}
+            >
+              <Text style={styles.reviewButtonText}>Review Client</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
@@ -203,6 +395,19 @@ export default function ReceivedBookingsScreen() {
           </View>
         }
       />
+
+      {reviewTarget && (
+        <ReviewModal
+          visible={!!reviewTarget}
+          bookingId={reviewTarget.id}
+          revieweeName={reviewTarget.client_username}
+          onClose={() => setReviewTarget(null)}
+          onSubmitted={() => {
+            setReviewTarget(null);
+            fetchBookings();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -210,7 +415,7 @@ export default function ReceivedBookingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: '#1C1C1E',
   },
   centered: {
     flex: 1,
@@ -221,7 +426,7 @@ const styles = StyleSheet.create({
   header: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: '#FAF7F2',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
@@ -231,17 +436,12 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2C2C2E',
     borderRadius: 12,
     padding: 16,
     marginBottom: 14,
     borderLeftWidth: 4,
     borderLeftColor: '#F5A623',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -252,7 +452,7 @@ const styles = StyleSheet.create({
   gigTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
+    color: '#FAF7F2',
     flexShrink: 1,
     marginRight: 8,
   },
@@ -262,24 +462,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    color: '#FFFFFF',
+    color: '#1C1C1E',
     fontSize: 11,
     fontWeight: '700',
   },
   clientName: {
     fontSize: 14,
-    color: '#555555',
+    color: '#999',
     marginBottom: 4,
   },
   message: {
     fontSize: 14,
-    color: '#333333',
+    color: '#ccc',
     marginBottom: 8,
     fontStyle: 'italic',
   },
   date: {
     fontSize: 13,
-    color: '#888888',
+    color: '#999',
     marginBottom: 10,
   },
   actionRow: {
@@ -298,11 +498,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5A623',
   },
   acceptButtonText: {
-    color: '#FAF7F2',
-    fontWeight: '600',
+    color: '#1C1C1E',
+    fontWeight: '700',
   },
   declineButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#1C1C1E',
     borderWidth: 1,
     borderColor: '#E74C3C',
   },
@@ -310,8 +510,54 @@ const styles = StyleSheet.create({
     color: '#E74C3C',
     fontWeight: '600',
   },
+  completeButton: {
+    backgroundColor: '#3498DB',
+  },
+  completeButtonText: {
+    color: '#FAF7F2',
+    fontWeight: '600',
+  },
+  reviewButton: {
+    backgroundColor: '#F5A623',
+  },
+  reviewButtonText: {
+    color: '#1C1C1E',
+    fontWeight: '700',
+  },
+  deleteReviewButton: {
+    backgroundColor: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: '#E74C3C',
+  },
+  deleteReviewButtonText: {
+    color: '#E74C3C',
+    fontWeight: '700',
+  },
+  callButton: {
+    backgroundColor: '#2C2C2E',
+    borderWidth: 1,
+    borderColor: '#F5A623',
+  },
+  callButtonText: {
+    color: '#F5A623',
+    fontWeight: '600',
+  },
+  whatsappButton: {
+    backgroundColor: '#25D366',
+  },
+  whatsappButtonText: {
+    color: '#1C1C1E',
+    fontWeight: '700',
+  },
+  messageButton: {
+    backgroundColor: '#F5A623',
+  },
+  messageButtonText: {
+    color: '#1C1C1E',
+    fontWeight: '700',
+  },
   emptyText: {
     fontSize: 15,
-    color: '#888888',
+    color: '#999',
   },
 });

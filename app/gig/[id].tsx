@@ -23,8 +23,9 @@ interface Gig {
 }
 
 export default function GigDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, mine } = useLocalSearchParams<{ id: string; mine?: string }>();
   const router = useRouter();
+  const isOwnGig = mine === "true";
 
   const [gig, setGig] = useState<Gig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,9 @@ export default function GigDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[styles.content, isOwnGig && styles.contentNoButton]}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.backButton}>{'< Back'}</Text>
@@ -79,7 +82,7 @@ export default function GigDetailScreen() {
 
         <Text style={styles.title}>{gig.title}</Text>
         <Text style={styles.category}>{gig.category}</Text>
-        <Text style={styles.price}>₦{gig.price}</Text>
+        <Text style={styles.price}>Price negotiable</Text>
 
         <Text style={styles.sectionLabel}>Description</Text>
         <Text style={styles.description}>{gig.description}</Text>
@@ -88,21 +91,23 @@ export default function GigDetailScreen() {
         <Text style={styles.location}>{gig.location}</Text>
       </ScrollView>
 
-      <TouchableOpacity
-        style={styles.bookButton}
-        onPress={() =>
-          router.push({
-            pathname: '/booking/[gigId]',
-            params: {
-              gigId: gig.id.toString(),
-              gigTitle: gig.title,
-              gigPrice: gig.price.toString(),
-            },
-          })
-        }
-      >
-        <Text style={styles.bookButtonText}>Book This Gig</Text>
-      </TouchableOpacity>
+      {!isOwnGig && (
+        <TouchableOpacity
+          style={styles.bookButton}
+          onPress={() =>
+            router.push({
+              pathname: '/booking/[gigId]',
+              params: {
+                gigId: gig.id.toString(),
+                gigTitle: gig.title,
+                gigPrice: gig.price.toString(),
+              },
+            })
+          }
+        >
+          <Text style={styles.bookButtonText}>Book This Gig</Text>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -125,6 +130,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 100,
+  },
+  contentNoButton: {
+    paddingBottom: 30,
   },
   header: {
     marginBottom: 12,
@@ -158,9 +166,10 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   price: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#F5A623',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#888',
+    fontStyle: 'italic',
     marginBottom: 20,
   },
   sectionLabel: {

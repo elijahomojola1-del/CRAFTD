@@ -16,18 +16,30 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../config/api";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
+const SCREEN_HEIGHT = Dimensions.get("window").height;
+
+// Grid layout math: 3 columns, with consistent gaps on both sides and between tiles
+const GRID_PADDING = 20;
+const GRID_GAP = 8;
+const GRID_COLUMNS = 3;
+const TILE_SIZE =
+  (SCREEN_WIDTH - GRID_PADDING * 2 - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<any>(null);
   const [portfolio, setPortfolio] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -98,6 +110,72 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleAvatarUpload = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo access to update your profile picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+
+    if (result.canceled) return;
+
+    try {
+      setUploadingAvatar(true);
+      const token = await SecureStore.getItemAsync("accessToken");
+      const asset = result.assets[0];
+
+      const formData = new FormData();
+      formData.append("profile_picture", {
+        uri: asset.uri,
+        name: "avatar.jpg",
+        type: "image/jpeg",
+      } as any);
+
+      const response = await fetch(`${API_BASE_URL}/app/profile/`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        Alert.alert("Error", "Failed to update profile picture. Please try again.");
+        return;
+      }
+
+      const data = await response.json();
+      setProfile(data);
+    } catch (err) {
+      console.log("Error uploading avatar:", err);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarPress = () => {
+    if (!profile?.profile_picture) {
+      // No photo yet — nothing to view, go straight to picking one
+      handleAvatarUpload();
+      return;
+    }
+
+    Alert.alert("Profile Photo", undefined, [
+      { text: "View Photo", onPress: () => setAvatarModalVisible(true) },
+      { text: "Change Photo", onPress: handleAvatarUpload },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   const handleAddPortfolioImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -106,7 +184,7 @@ export default function ProfileScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.8,
     });
 
@@ -173,16 +251,6 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleLogout = async () => {
-    try {
-      await SecureStore.deleteItemAsync("accessToken");
-      router.replace("/login");
-    } catch (err) {
-      console.log("Error logging out:", err);
-      Alert.alert("Error", "Failed to log out. Please try again.");
-    }
-  };
-
   useFocusEffect(
     useCallback(() => {
       fetchProfile();
@@ -191,12 +259,20 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.safe}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Text style={styles.backText}>{"< Back"}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>My Profile</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          onPress={() => router.push("/settings")}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.settingsIcon}>⚙</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -205,9 +281,13 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.avatarWrap}>
+          <TouchableOpacity
+            style={styles.avatarWrap}
+            onPress={handleAvatarPress}
+            disabled={uploadingAvatar}
+          >
             {profile?.profile_picture ? (
-              <View style={styles.avatar} />
+              <Image source={{ uri: profile.profile_picture }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarInitial}>
@@ -215,7 +295,14 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             )}
-          </View>
+            <View style={styles.avatarEditBadge}>
+              {uploadingAvatar ? (
+                <ActivityIndicator color="#1C1C1E" size="small" />
+              ) : (
+                <Text style={styles.avatarEditText}>✎</Text>
+              )}
+            </View>
+          </TouchableOpacity>
 
           <View style={styles.nameRow}>
             <Text style={styles.username}>{profile?.username}</Text>
@@ -279,20 +366,21 @@ export default function ProfileScreen() {
 
           <View style={styles.portfolioSection}>
             <Text style={styles.label}>Portfolio</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+
+            <View style={styles.grid}>
               {portfolio.map((item, index) => (
                 <TouchableOpacity
                   key={item.id}
-                  style={styles.portfolioThumbWrap}
+                  style={styles.gridTile}
                   onPress={() => setViewingIndex(index)}
                   onLongPress={() => handleDeletePortfolioImage(item.id)}
                 >
-                  <Image source={{ uri: item.image }} style={styles.portfolioThumb} />
+                  <Image source={{ uri: item.image }} style={styles.gridImage} />
                 </TouchableOpacity>
               ))}
 
               <TouchableOpacity
-                style={styles.addPortfolioTile}
+                style={[styles.gridTile, styles.addTile]}
                 onPress={handleAddPortfolioImage}
                 disabled={uploading}
               >
@@ -302,12 +390,14 @@ export default function ProfileScreen() {
                   <Text style={styles.addPortfolioText}>+</Text>
                 )}
               </TouchableOpacity>
-            </ScrollView>
+            </View>
+
             {portfolio.length > 0 && (
               <Text style={styles.portfolioHint}>Hold a photo to delete it</Text>
             )}
           </View>
 
+          {/* Portfolio photo viewer */}
           <Modal
             visible={viewingIndex !== null}
             transparent
@@ -324,6 +414,7 @@ export default function ProfileScreen() {
 
               {viewingIndex !== null && (
                 <FlatList
+                  style={styles.modalFlatList}
                   data={portfolio}
                   keyExtractor={(item) => String(item.id)}
                   horizontal
@@ -349,12 +440,30 @@ export default function ProfileScreen() {
             </View>
           </Modal>
 
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={handleLogout}
+          {/* Profile photo viewer */}
+          <Modal
+            visible={avatarModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setAvatarModalVisible(false)}
           >
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
+            <View style={styles.modalOverlay}>
+              <TouchableOpacity
+                style={styles.modalClose}
+                onPress={() => setAvatarModalVisible(false)}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+
+              <View style={styles.modalImageWrap}>
+                <Image
+                  source={{ uri: profile?.profile_picture }}
+                  style={styles.modalImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
+          </Modal>
         </ScrollView>
       )}
     </View>
@@ -368,13 +477,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingBottom: 16,
   },
   backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
   title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  settingsIcon: { fontSize: 20, color: "#F5A623" },
   emptyState: { flex: 1, justifyContent: "center", alignItems: "center" },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
-  avatarWrap: { alignItems: "center", marginBottom: 28 },
+  avatarWrap: { alignItems: "center", marginBottom: 28, alignSelf: "center" },
   avatar: { width: 90, height: 90, borderRadius: 45, marginBottom: 12 },
   avatarPlaceholder: {
     backgroundColor: "#2C2C2E",
@@ -382,6 +492,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarInitial: { fontSize: 32, fontWeight: "700", color: "#F5A623" },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 8,
+    right: -4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#F5A623",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#1C1C1E",
+  },
+  avatarEditText: { fontSize: 12, color: "#1C1C1E", fontWeight: "700" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" },
   username: { fontSize: 20, fontWeight: "700", color: "#FAF7F2" },
   verifiedBadge: {
@@ -413,13 +537,21 @@ const styles = StyleSheet.create({
   },
   saveButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 15 },
   portfolioSection: { marginTop: 10 },
-  portfolioThumbWrap: { marginRight: 10 },
-  portfolioThumb: { width: 90, height: 90, borderRadius: 10, backgroundColor: "#2C2C2E" },
-  addPortfolioTile: {
-    width: 90,
-    height: 90,
+  grid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "flex-start",
+    gap: GRID_GAP,
+  },
+  gridTile: {
+    width: TILE_SIZE,
+    height: TILE_SIZE,
     borderRadius: 10,
+    overflow: "hidden",
     backgroundColor: "#2C2C2E",
+  },
+  gridImage: { width: "100%", height: "100%" },
+  addTile: {
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -427,13 +559,10 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   addPortfolioText: { fontSize: 28, color: "#F5A623", fontWeight: "700" },
-  portfolioHint: { fontSize: 11, color: "#999", marginTop: 8 },
+  portfolioHint: { fontSize: 11, color: "#999", marginTop: 10 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.8)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
   },
   modalClose: {
     position: "absolute",
@@ -447,22 +576,19 @@ const styles = StyleSheet.create({
     color: "#F5A623",
     fontWeight: "700",
   },
+  modalFlatList: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
   modalImage: {
     width: "100%",
     height: "100%",
   },
   modalImageWrap: {
-    width: "100%",
-    height: "100%",
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
-  logoutButton: {
-    backgroundColor: "#F5A623",
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  logoutText: { color: "#1C1C1E", fontWeight: "700", fontSize: 15 },
 });
