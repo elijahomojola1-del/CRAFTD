@@ -24,6 +24,11 @@ const FAQ = [
       'Turn on "I offer services" in Settings, then go to My Skills and add up to three skills. Add a clear photo and description so clients know what you do.',
   },
   {
+    question: 'Is CRAFTD free?',
+    answer:
+      'Browsing and sending booking requests is always free, and so are your first bookings. Once those are used, a subscription unlocks the rest. You can see how many free bookings you have left under Settings, then Subscription.',
+  },
+  {
     question: 'How do reviews work?',
     answer:
       'After a provider marks a job complete, both sides can leave a star rating and a comment from the booking. You can delete a review you wrote at any time.',

@@ -106,6 +106,7 @@ export default function SettingsScreen() {
         <SettingsSection title="Account">
           <SettingsRow label="Edit Profile" onPress={() => router.push("/profile")} />
           <SettingsRow label="Change Password" onPress={() => router.push("/change-password")} />
+          <SettingsRow label="Subscription" onPress={() => router.push("/subscribe")} />
           <View style={styles.row}>
             <View style={styles.switchText}>
               <Text style={styles.rowLabel}>I offer services</Text>

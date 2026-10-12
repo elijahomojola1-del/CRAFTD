@@ -54,14 +54,25 @@ const TERMS: PolicySection[] = [
     bullets: [
       "A booking request is a request, not a confirmed job. It is confirmed only when the provider accepts it.",
       "Gigs do not list a price. The client and the provider agree the price between themselves, in chat or by phone.",
-      "CRAFTD does not collect, hold or refund payments. Agree the price and how it will be paid directly with the other person.",
+      "CRAFTD does not collect, hold or refund payment for jobs. Agree the price and how it will be paid directly with the other person.",
       "Either side can cancel a booking before the job is done. Please do it early.",
+    ],
+  },
+  {
+    heading: "Free bookings and subscription",
+    bullets: [
+      "Browsing gigs and sending booking requests is always free.",
+      "Each account gets a number of free bookings: jobs you accept as a provider, and accepted bookings you make as a client. Settings, then Subscription, shows how many you have left.",
+      "After your free bookings, new ones stay locked until you subscribe. A locked booking hides the other person's details, chat and contact options.",
+      "A subscription unlocks all your bookings for as long as it is active. If it ends, bookings beyond your free ones lock again.",
+      "The price and length of a subscription are shown to you before you pay.",
     ],
   },
   {
     heading: "Refunds and cancellations",
     bullets: [
-      "CRAFTD is free to use and takes no payment from you, so there is nothing for CRAFTD to refund.",
+      "CRAFTD takes no payment for the jobs themselves, so there is nothing for CRAFTD to refund on a job.",
+      "For subscriptions, the refund terms are shown to you before you pay.",
       "Any deposit or payment is made directly to the provider. A refund is a matter between you and that provider, so agree the terms in chat before you pay.",
       "A client can cancel a pending or accepted booking in My Bookings. A provider can decline a request in Job Requests.",
       "If a job goes wrong, tell us. We can remove listings and suspend accounts, but we cannot recover money paid outside the app.",

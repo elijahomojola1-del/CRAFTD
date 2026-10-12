@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { colors } from '../constants/theme';
 import { Alert } from '../utils/alert';
+import { apiRequest } from '../utils/api';
 import BackButton from '../components/BackButton';
 import ReviewModal from '../components/ReviewModal';
 import { API_BASE_URL } from '../config/api';
@@ -31,6 +32,9 @@ interface Booking {
   proposed_date: string;
   created_at: string;
   review_id: number | null;
+  gig_title: string;
+  // True when the free bookings are used up and this one needs a subscription.
+  locked: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -50,6 +54,7 @@ export default function ReceivedBookingsScreen() {
   const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
   const [messagingId, setMessagingId] = useState<number | null>(null);
   const [reviewTarget, setReviewTarget] = useState<Booking | null>(null);
+  const [plan, setPlan] = useState<{ subscribed: boolean; remaining: number; limit: number } | null>(null);
 
   const fetchBookings = async () => {
     try {
@@ -66,6 +71,15 @@ export default function ReceivedBookingsScreen() {
 
       const data = await response.json();
       setBookings(data);
+
+      const subscription = await apiRequest('/app/subscription/');
+      if (subscription.ok && subscription.data) {
+        setPlan({
+          subscribed: subscription.data.is_subscribed,
+          remaining: subscription.data.provider.remaining,
+          limit: subscription.data.provider.free_limit,
+        });
+      }
     } catch (error) {
       console.error('Error fetching received bookings:', error);
       Alert.alert('Error', 'Could not load job requests. Please try again.');
@@ -106,15 +120,17 @@ export default function ReceivedBookingsScreen() {
         }
       );
 
+      if (response.status === 402) {
+        router.push('/subscribe');
+        return;
+      }
+
       if (!response.ok) {
         throw new Error('Failed to update booking status');
       }
 
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === bookingId ? { ...b, status: newStatus } : b
-        )
-      );
+      // Reload: accepting can use up the last free booking and lock the rest.
+      await fetchBookings();
     } catch (error) {
       console.error('Error updating booking status:', error);
       Alert.alert('Error', 'Could not update this request. Please try again.');
@@ -239,7 +255,7 @@ export default function ReceivedBookingsScreen() {
   const renderBooking = ({ item }: { item: Booking }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.gigTitle}>{item.gig.title}</Text>
+        <Text style={styles.gigTitle}>{item.gig_title}</Text>
         <View
           style={[
             styles.statusBadge,
@@ -250,11 +266,23 @@ export default function ReceivedBookingsScreen() {
         </View>
       </View>
 
-      <Text style={styles.clientName}>From: {item.client_username}</Text>
+      {item.locked ? (
+        <View style={styles.lockedBox}>
+          <View style={styles.blurLine} />
+          <View style={[styles.blurLine, styles.blurLineShort]} />
+          <Text style={styles.lockedText}>
+            A client wants to hire you. Subscribe to see who it is and accept the job.
+          </Text>
+        </View>
+      ) : (
+        <>
+          <Text style={styles.clientName}>From: {item.client_username}</Text>
 
-      {item.message ? (
-        <Text style={styles.message}>{item.message}</Text>
-      ) : null}
+          {item.message ? (
+            <Text style={styles.message}>{item.message}</Text>
+          ) : null}
+        </>
+      )}
 
       <Text style={styles.date}>
         Proposed:{' '}
@@ -279,21 +307,44 @@ export default function ReceivedBookingsScreen() {
             )}
           </TouchableOpacity>
 
+          {item.locked ? (
+            <TouchableOpacity accessibilityRole="button"
+              style={[styles.actionButton, styles.acceptButton]}
+              onPress={() => router.push('/subscribe')}
+            >
+              <Text style={styles.acceptButtonText}>Subscribe to Accept</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity accessibilityRole="button"
+              style={[styles.actionButton, styles.acceptButton]}
+              onPress={() => handleStatusUpdate(item.id, 'accepted')}
+              disabled={updatingId === item.id}
+            >
+              {updatingId === item.id ? (
+                <ActivityIndicator color={colors.onPrimary} size="small" />
+              ) : (
+                <Text style={styles.acceptButtonText}>Accept</Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {item.status === 'accepted' && item.locked && (
+        <View style={styles.lockedBox}>
+          <Text style={styles.lockedText}>
+            Your subscription has ended. Subscribe again to call, message or complete this job.
+          </Text>
           <TouchableOpacity accessibilityRole="button"
-            style={[styles.actionButton, styles.acceptButton]}
-            onPress={() => handleStatusUpdate(item.id, 'accepted')}
-            disabled={updatingId === item.id}
+            style={[styles.actionButton, styles.acceptButton, styles.lockedButton]}
+            onPress={() => router.push('/subscribe')}
           >
-            {updatingId === item.id ? (
-              <ActivityIndicator color={colors.onPrimary} size="small" />
-            ) : (
-              <Text style={styles.acceptButtonText}>Accept</Text>
-            )}
+            <Text style={styles.acceptButtonText}>Subscribe</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {item.status === 'accepted' && (
+      {item.status === 'accepted' && !item.locked && (
         <>
           <View style={styles.actionRow}>
             <TouchableOpacity accessibilityRole="button"
@@ -382,6 +433,16 @@ export default function ReceivedBookingsScreen() {
         <BackButton />
       </View>
       <Text style={styles.header} accessibilityRole="header">Job Requests</Text>
+      {plan && !plan.subscribed && (
+        <TouchableOpacity accessibilityRole="button" style={styles.planBanner} onPress={() => router.push('/subscribe')}>
+          <Text style={styles.planText}>
+            {plan.remaining > 0
+              ? ` of  free bookings left`
+              : 'You have used your free bookings'}
+          </Text>
+          <Text style={styles.planLink}>Subscribe</Text>
+        </TouchableOpacity>
+      )}
       <FlatList
         data={bookings}
         keyExtractor={(item) => item.id.toString()}
@@ -428,6 +489,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 80,
   },
+  planBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  planText: { color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 },
+  planLink: { color: colors.primary, fontSize: 13, fontWeight: '700', marginLeft: 12 },
+  lockedBox: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 14,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  // Stand-ins for the hidden name and message.
+  blurLine: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: colors.border,
+    marginBottom: 8,
+    width: '70%',
+  },
+  blurLineShort: { width: '45%' },
+  lockedText: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
+  lockedButton: { marginTop: 12, flex: 0 },
   backRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,

@@ -338,7 +338,22 @@ export default function MyBookingsScreen() {
                   </Text>
                 </View>
 
-                {item.status === "accepted" && (
+                {item.status === "accepted" && item.locked && (
+                  <View style={styles.lockedBox}>
+                    <Text style={styles.lockedText}>
+                      Good news: your request was accepted. You have used your free bookings, so subscribe to call or message the provider.
+                    </Text>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      style={[styles.actionButton, styles.reviewButton, styles.lockedButton]}
+                      onPress={() => router.push("/subscribe")}
+                    >
+                      <Text style={styles.reviewButtonText}>Subscribe to Unlock</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {item.status === "accepted" && !item.locked && (
                   <View style={styles.actionRow}>
                     <TouchableOpacity accessibilityRole="button"
                       style={[styles.actionButton, styles.callButton]}
@@ -356,7 +371,7 @@ export default function MyBookingsScreen() {
                   </View>
                 )}
 
-                {item.status === "accepted" && (
+                {item.status === "accepted" && !item.locked && (
                   <View style={styles.actionRow}>
                     <TouchableOpacity accessibilityRole="button"
                       style={[styles.actionButton, styles.messageButton]}
@@ -497,6 +512,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginTop: 6,
   },
+  lockedBox: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 10,
+  },
+  lockedText: { color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
+  lockedButton: { marginTop: 10, flex: 0 },
   statusText: { fontSize: 11, fontWeight: "700", color: colors.onPrimary },
   actionRow: {
     flexDirection: "row",
