@@ -1,5 +1,5 @@
-import { decodeJwtPayload } from '../../utils/jwt';
-import { getToken } from '../../utils/tokenStorage';
+import { decodeJwtPayload } from './jwt';
+import { getToken } from './tokenStorage';
 
 export { decodeJwtPayload };
 

@@ -9,12 +9,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "com.elijahomojola.craftd",
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "CRAFTD uses your location to show you nearby tradespeople and jobs."
       }
     },
     "android": {
+      "package": "com.elijahomojola.craftd",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -49,9 +51,9 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#1C1C1E",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#1C1C1E"
           }
         }
       ]
