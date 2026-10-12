@@ -65,7 +65,9 @@ const TERMS: PolicySection[] = [
       "Each account gets a number of free bookings: jobs you accept as a provider, and accepted bookings you make as a client. Settings, then Subscription, shows how many you have left.",
       "After your free bookings, new ones stay locked until you subscribe. A locked booking hides the other person's details, chat and contact options.",
       "A subscription unlocks all your bookings for as long as it is active. If it ends, bookings beyond your free ones lock again.",
-      "The price and length of a subscription are shown to you before you pay.",
+      "The price depends on how you use CRAFTD: providers in higher-value trades such as construction and automotive pay more than other providers, and people who only book pay the least. A provider's price follows the most valuable skill they list.",
+      "If you add a skill that belongs to a higher-priced plan, you need to move up to that plan for your subscription to keep applying.",
+      "Your own price and the length of the subscription are shown to you before you pay.",
     ],
   },
   {

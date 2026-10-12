@@ -20,6 +20,12 @@ interface Subscription {
   is_subscribed: boolean;
   expires: string | null;
   price_text: string;
+  // The plan this user needs: Premium for high-value trades, Standard for
+  // other providers, Client for people who only book.
+  plan: { tier: string; label: string; price_naira: number; days: number };
+  // Subscribed to a cheaper plan than their skills now need.
+  needs_upgrade: boolean;
+  current_tier_label: string;
   // True once Paystack is connected and a price is set on the server.
   payment_available: boolean;
   requested: boolean;
@@ -192,8 +198,20 @@ export default function SubscribeScreen() {
                 <AllowanceRow label="Bookings you make" allowance={subscription.client} />
               </View>
 
+              {subscription.needs_upgrade ? (
+                <Text style={formStyles.error} accessibilityRole="alert">
+                  Your {subscription.current_tier_label} subscription doesn&apos;t cover the skills you
+                  offer now. Move up to {subscription.plan.label} to unlock your bookings again.
+                </Text>
+              ) : null}
+
               <View style={formStyles.card}>
-                <Text style={formStyles.cardTitle}>With a subscription</Text>
+                <Text style={formStyles.cardTitle}>{subscription.plan.label} plan</Text>
+                <Text style={styles.planNote}>
+                  {subscription.plan.tier === 'client'
+                    ? 'For people who book services.'
+                    : 'Your plan depends on the kind of work you offer.'}
+                </Text>
                 {BENEFITS.map((benefit) => (
                   <View key={benefit} style={styles.benefitRow}>
                     <Text style={styles.benefitDot} aria-hidden>•</Text>
@@ -221,7 +239,11 @@ export default function SubscribeScreen() {
                       <ActivityIndicator color={colors.onPrimary} />
                     ) : (
                       <Text style={formStyles.buttonText}>
-                        {subscription.payment_available ? 'Subscribe and Pay' : 'Subscribe'}
+                        {subscription.needs_upgrade
+                          ? `Upgrade to ${subscription.plan.label}`
+                          : subscription.payment_available
+                            ? 'Subscribe and Pay'
+                            : 'Subscribe'}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -253,6 +275,7 @@ const styles = StyleSheet.create({
   benefitRow: { flexDirection: 'row', marginBottom: 6 },
   benefitDot: { color: colors.primary, fontSize: 14, lineHeight: 21, width: 16 },
   benefitText: { flex: 1, color: colors.textSecondary, fontSize: 14, lineHeight: 21 },
+  planNote: { color: colors.textMuted, fontSize: 13, marginBottom: 10 },
   price: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 10 },
   note: { color: colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 14 },
 });
