@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '../constants/theme';
+import { getToken } from '../utils/tokenStorage';
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -9,7 +10,7 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     const checkLoggedIn = async () => {
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await getToken();
       if (token) {
         router.replace('/home');
       } else {
@@ -25,14 +26,14 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>CRAFTD</Text>
-      <Text style={styles.tagline}>Book trusted pros. Anytime, anywhere.</Text>
+      <Text style={styles.logo} accessibilityRole="header">CRAFTD</Text>
+      <Text style={styles.tagline}>Find and book skilled pros near you.</Text>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/register')}>
+      <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} onPress={() => router.push('/register')}>
         <Text style={styles.primaryButtonText}>Get Started</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/login')}>
+      <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/login')}>
         <Text style={styles.loginText}>I already have an account</Text>
       </TouchableOpacity>
     </View>
@@ -42,7 +43,7 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -50,29 +51,29 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#F5A623',
+    color: colors.primary,
     marginBottom: 12,
   },
   tagline: {
     fontSize: 16,
-    color: '#FAF7F2',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 40,
   },
   primaryButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 48,
     borderRadius: 30,
     marginBottom: 20,
   },
   primaryButtonText: {
-    color: '#1C1C1E',
+    color: colors.onPrimary,
     fontSize: 16,
     fontWeight: '600',
   },
   loginText: {
-    color: '#FAF7F2',
+    color: colors.text,
     fontSize: 14,
     textDecorationLine: 'underline',
   },

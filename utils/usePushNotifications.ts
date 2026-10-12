@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as Notifications from 'expo-notifications';
-import * as SecureStore from 'expo-secure-store';
+import { getToken } from './tokenStorage';
 import { registerForPushNotificationsAsync } from './registerForPushNotifications';
 import { API_BASE_URL } from '../config/api';
 
@@ -23,7 +23,7 @@ export function usePushNotifications() {
       if (token) {
         setExpoPushToken(token);
         try {
-          const authToken = await SecureStore.getItemAsync('accessToken');
+          const authToken = await getToken();
           await fetch(`${API_BASE_URL}/app/save-push-token/`, {
             method: 'POST',
             headers: {

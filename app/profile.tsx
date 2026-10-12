@@ -1,10 +1,9 @@
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../utils/tokenStorage";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -16,6 +15,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import BackButton from "../components/BackButton";
+import { colors } from "../constants/theme";
+import { Alert } from "../utils/alert";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../config/api";
 
@@ -47,7 +49,7 @@ export default function ProfileScreen() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const [profileRes, portfolioRes] = await Promise.all([
         fetch(`${API_BASE_URL}/app/profile/`, {
@@ -80,7 +82,7 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     try {
       setSaving(true);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const response = await fetch(`${API_BASE_URL}/app/profile/`, {
         method: "PATCH",
@@ -128,7 +130,7 @@ export default function ProfileScreen() {
 
     try {
       setUploadingAvatar(true);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
       const asset = result.assets[0];
 
       const formData = new FormData();
@@ -192,7 +194,7 @@ export default function ProfileScreen() {
 
     try {
       setUploading(true);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
       const asset = result.assets[0];
 
       const formData = new FormData();
@@ -234,7 +236,7 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            const token = await SecureStore.getItemAsync("accessToken");
+            const token = await getToken();
             const response = await fetch(`${API_BASE_URL}/app/portfolio/${id}/`, {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` },
@@ -260,14 +262,10 @@ export default function ProfileScreen() {
   return (
     <View style={styles.safe}>
       <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.backText}>{"< Back"}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>My Profile</Text>
-        <TouchableOpacity
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">My Profile</Text>
+        <TouchableOpacity accessibilityRole="button"
+          accessibilityLabel="Settings"
           onPress={() => router.push("/settings")}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -277,17 +275,23 @@ export default function ProfileScreen() {
 
       {loading ? (
         <View style={styles.emptyState}>
-          <ActivityIndicator color="#F5A623" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.content}>
-          <TouchableOpacity
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <TouchableOpacity accessibilityRole="button"
+            accessibilityLabel="Change profile photo"
             style={styles.avatarWrap}
             onPress={handleAvatarPress}
             disabled={uploadingAvatar}
           >
             {profile?.profile_picture ? (
-              <Image source={{ uri: profile.profile_picture }} style={styles.avatar} />
+              <Image
+                source={{ uri: profile.profile_picture }}
+                style={styles.avatar}
+                accessible
+                accessibilityLabel="Your profile photo"
+              />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarInitial}>
@@ -297,7 +301,7 @@ export default function ProfileScreen() {
             )}
             <View style={styles.avatarEditBadge}>
               {uploadingAvatar ? (
-                <ActivityIndicator color="#1C1C1E" size="small" />
+                <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
                 <Text style={styles.avatarEditText}>✎</Text>
               )}
@@ -323,7 +327,8 @@ export default function ProfileScreen() {
               value={bio}
               onChangeText={setBio}
               placeholder="Tell clients about yourself"
-              placeholderTextColor="#999"
+              accessibilityLabel="Bio"
+              placeholderTextColor={colors.textMuted}
               multiline
               maxLength={500}
             />
@@ -336,7 +341,9 @@ export default function ProfileScreen() {
               value={location}
               onChangeText={setLocation}
               placeholder="e.g. Lagos, Nigeria"
-              placeholderTextColor="#999"
+              accessibilityLabel="Location"
+              returnKeyType="next"
+              placeholderTextColor={colors.textMuted}
             />
           </View>
 
@@ -347,18 +354,21 @@ export default function ProfileScreen() {
               value={phoneNumber}
               onChangeText={setPhoneNumber}
               placeholder="e.g. 08012345678"
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.textMuted}
               keyboardType="phone-pad"
+              accessibilityLabel="Phone number"
+              autoComplete="tel"
+              textContentType="telephoneNumber"
             />
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.saveButton}
             onPress={handleSave}
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color="#1C1C1E" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.saveButtonText}>Save Changes</Text>
             )}
@@ -369,23 +379,30 @@ export default function ProfileScreen() {
 
             <View style={styles.grid}>
               {portfolio.map((item, index) => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={item.id}
+                  accessibilityLabel={`Portfolio photo ${index + 1}. Hold to delete.`}
                   style={styles.gridTile}
                   onPress={() => setViewingIndex(index)}
                   onLongPress={() => handleDeletePortfolioImage(item.id)}
                 >
-                  <Image source={{ uri: item.image }} style={styles.gridImage} />
+                  <Image
+                    source={{ uri: item.image }}
+                    style={styles.gridImage}
+                    accessible
+                    accessibilityLabel={item.caption || `Portfolio photo ${index + 1}`}
+                  />
                 </TouchableOpacity>
               ))}
 
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
+                accessibilityLabel="Add a portfolio photo"
                 style={[styles.gridTile, styles.addTile]}
                 onPress={handleAddPortfolioImage}
                 disabled={uploading}
               >
                 {uploading ? (
-                  <ActivityIndicator color="#F5A623" />
+                  <ActivityIndicator color={colors.primary} />
                 ) : (
                   <Text style={styles.addPortfolioText}>+</Text>
                 )}
@@ -405,7 +422,8 @@ export default function ProfileScreen() {
             onRequestClose={() => setViewingIndex(null)}
           >
             <View style={styles.modalOverlay}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
+                accessibilityLabel="Close photo"
                 style={styles.modalClose}
                 onPress={() => setViewingIndex(null)}
               >
@@ -426,9 +444,11 @@ export default function ProfileScreen() {
                     index,
                   })}
                   showsHorizontalScrollIndicator={false}
-                  renderItem={({ item }) => (
+                  renderItem={({ item, index }) => (
                     <View style={styles.modalImageWrap}>
                       <Image
+                        accessible
+                        accessibilityLabel={item.caption || `Portfolio photo ${index + 1}`}
                         source={{ uri: item.image }}
                         style={styles.modalImage}
                         resizeMode="contain"
@@ -448,7 +468,8 @@ export default function ProfileScreen() {
             onRequestClose={() => setAvatarModalVisible(false)}
           >
             <View style={styles.modalOverlay}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
+                accessibilityLabel="Close photo"
                 style={styles.modalClose}
                 onPress={() => setAvatarModalVisible(false)}
               >
@@ -457,6 +478,8 @@ export default function ProfileScreen() {
 
               <View style={styles.modalImageWrap}>
                 <Image
+                  accessible
+                  accessibilityLabel="Your profile photo"
                   source={{ uri: profile?.profile_picture }}
                   style={styles.modalImage}
                   resizeMode="contain"
@@ -471,7 +494,7 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -479,19 +502,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
-  settingsIcon: { fontSize: 20, color: "#F5A623" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text },
+  settingsIcon: { fontSize: 20, color: colors.primary },
   emptyState: { flex: 1, justifyContent: "center", alignItems: "center" },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   avatarWrap: { alignItems: "center", marginBottom: 28, alignSelf: "center" },
   avatar: { width: 90, height: 90, borderRadius: 45, marginBottom: 12 },
   avatarPlaceholder: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarInitial: { fontSize: 32, fontWeight: "700", color: "#F5A623" },
+  avatarInitial: { fontSize: 32, fontWeight: "700", color: colors.primary },
   avatarEditBadge: {
     position: "absolute",
     bottom: 8,
@@ -499,43 +522,43 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#1C1C1E",
+    borderColor: colors.background,
   },
-  avatarEditText: { fontSize: 12, color: "#1C1C1E", fontWeight: "700" },
+  avatarEditText: { fontSize: 12, color: colors.onPrimary, fontWeight: "700" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" },
-  username: { fontSize: 20, fontWeight: "700", color: "#FAF7F2" },
+  username: { fontSize: 20, fontWeight: "700", color: colors.text },
   verifiedBadge: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  verifiedText: { fontSize: 11, fontWeight: "700", color: "#1C1C1E" },
-  gigCount: { fontSize: 13, color: "#999", marginTop: 6, textAlign: "center" },
+  verifiedText: { fontSize: 11, fontWeight: "700", color: colors.onPrimary },
+  gigCount: { fontSize: 13, color: colors.textMuted, marginTop: 6, textAlign: "center" },
   fieldGroup: { marginBottom: 20, marginTop: 6 },
-  label: { fontSize: 13, fontWeight: "600", color: "#999", marginBottom: 6 },
-  value: { fontSize: 15, color: "#FAF7F2" },
+  label: { fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: 6 },
+  value: { fontSize: 15, color: colors.text },
   input: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: "#FAF7F2",
+    color: colors.text,
   },
   bioInput: { minHeight: 90, textAlignVertical: "top" },
   saveButton: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: "center",
     marginTop: 10,
   },
-  saveButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 15 },
+  saveButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 15 },
   portfolioSection: { marginTop: 10 },
   grid: {
     flexDirection: "row",
@@ -548,18 +571,18 @@ const styles = StyleSheet.create({
     height: TILE_SIZE,
     borderRadius: 10,
     overflow: "hidden",
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
   },
   gridImage: { width: "100%", height: "100%" },
   addTile: {
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#F5A623",
+    borderColor: colors.primary,
     borderStyle: "dashed",
   },
-  addPortfolioText: { fontSize: 28, color: "#F5A623", fontWeight: "700" },
-  portfolioHint: { fontSize: 11, color: "#999", marginTop: 10 },
+  addPortfolioText: { fontSize: 28, color: colors.primary, fontWeight: "700" },
+  portfolioHint: { fontSize: 11, color: colors.textMuted, marginTop: 10 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.8)",
@@ -573,7 +596,7 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 28,
-    color: "#F5A623",
+    color: colors.primary,
     fontWeight: "700",
   },
   modalFlatList: {

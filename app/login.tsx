@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -10,18 +9,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '../constants/theme';
 import { API_BASE_URL } from '../config/api';
 import { registerForPushNotificationsAsync } from '../utils/registerForPushNotifications';
+import { saveToken } from '../utils/tokenStorage';
 
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const passwordRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
     try {
-      console.log('Login button pressed');
 
       const response = await fetch(`${API_BASE_URL}/api/token/`, {
         method: 'POST',
@@ -37,13 +39,12 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.log('Login failed:', data);
+        setErrorMessage(data.detail || 'The email or password is incorrect.');
         return;
       }
 
-      console.log('Login success:', data);
 
-      await SecureStore.setItemAsync('accessToken', data.access);
+      await saveToken(data.access);
 
       try {
         const pushToken = await registerForPushNotificationsAsync();
@@ -63,6 +64,7 @@ export default function LoginScreen() {
 
       router.replace('/home');
     } catch (error) {
+      setErrorMessage('Unable to connect to the server. Please try again.');
       console.log('Network error:', error);
     }
   };
@@ -72,31 +74,43 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Text style={styles.logo}>CRAFTD</Text>
+      <Text style={styles.logo} accessibilityRole="header">CRAFTD</Text>
       <Text style={styles.subtitle}>Welcome back</Text>
 
       <TextInput
         style={styles.input}
         placeholder="Email"
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.textMuted}
+        accessibilityLabel="Email address"
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        autoComplete="email"
+        textContentType="emailAddress"
         keyboardType="email-address"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
       />
 
       {/* Password field with show/hide toggle */}
       <View style={styles.passwordWrapper}>
         <TextInput
+          ref={passwordRef}
           style={styles.passwordInput}
           placeholder="Password"
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
           autoCapitalize="none"
+          autoComplete="current-password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={handleLogin}
         />
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
+          accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
           style={styles.eyeButton}
           onPress={() => setShowPassword((prev) => !prev)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -105,13 +119,19 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={handleLogin}>
+      {errorMessage ? (
+        <Text style={styles.errorText} accessibilityRole="alert">
+          {errorMessage}
+        </Text>
+      ) : null}
+
+      <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} onPress={handleLogin}>
         <Text style={styles.primaryButtonText}>Log In</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/register')}>
+      <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/register')}>
         <Text style={styles.registerText}>
-          Don't have an account? <Text style={styles.registerLink}>Sign up</Text>
+          Don&apos;t have an account? <Text style={styles.registerLink}>Sign up</Text>
         </Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
@@ -121,26 +141,26 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   logo: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#F5A623',
+    color: colors.primary,
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#FAF7F2',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 32,
   },
   input: {
-    backgroundColor: '#2C2C2E',
-    color: '#FAF7F2',
+    backgroundColor: colors.surface,
+    color: colors.text,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -150,14 +170,14 @@ const styles = StyleSheet.create({
   passwordWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.surface,
     borderRadius: 10,
     marginBottom: 16,
     paddingRight: 12,
   },
   passwordInput: {
     flex: 1,
-    color: '#FAF7F2',
+    color: colors.text,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 15,
@@ -169,25 +189,30 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   primaryButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
   },
   primaryButtonText: {
-    color: '#1C1C1E',
+    color: colors.onPrimary,
     fontWeight: '700',
     fontSize: 16,
   },
   registerText: {
-    color: '#999',
+    color: colors.textMuted,
     textAlign: 'center',
     marginTop: 20,
     fontSize: 13,
   },
   registerLink: {
-    color: '#F5A623',
+    color: colors.primary,
     fontWeight: '600',
+  },
+  errorText: {
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: 16,
   },
 });

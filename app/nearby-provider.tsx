@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../utils/tokenStorage";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../constants/theme";
+import BackButton from "../components/BackButton";
 import { API_BASE_URL } from "../config/api";
 
 interface NearbyProvider {
@@ -18,8 +20,6 @@ interface NearbyProvider {
   bio: string;
   city: string;
   state: string;
-  latitude: number;
-  longitude: number;
   is_verified: boolean;
   distance_km: number;
 }
@@ -32,57 +32,45 @@ export default function NearbyProvidersScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchNearby = useCallback(async () => {
-    console.log(">>> fetchNearby STARTED");
     try {
       setError(null);
-      const token = await SecureStore.getItemAsync("accessToken");
-      console.log(">>> token retrieved:", token ? "yes (length " + token.length + ")" : "NULL/undefined");
+      const token = await getToken();
 
-      console.log(">>> fetching profile from:", `${API_BASE_URL}/app/profile/`);
       const profileRes = await fetch(`${API_BASE_URL}/app/profile/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log(">>> profile response status:", profileRes.status);
 
       if (!profileRes.ok) {
         throw new Error("Failed to load your profile.");
       }
 
       const profileData = await profileRes.json();
-      console.log(">>> profile data:", JSON.stringify(profileData));
       const { latitude, longitude } = profileData;
 
       if (!latitude || !longitude) {
-        console.log(">>> MISSING lat/lng, stopping here");
         setError("Your location isn't set yet. Enable location in your profile first.");
         setProviders([]);
         return;
       }
 
       const nearbyUrl = `${API_BASE_URL}/app/providers/nearby/?lat=${latitude}&lng=${longitude}&radius=30`;
-      console.log(">>> fetching nearby from:", nearbyUrl);
 
       const nearbyRes = await fetch(nearbyUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log(">>> nearby response status:", nearbyRes.status);
 
       if (!nearbyRes.ok) {
         const errText = await nearbyRes.text();
-        console.log(">>> nearby error body:", errText);
         throw new Error("Failed to fetch nearby providers.");
       }
 
       const data = await nearbyRes.json();
-      console.log(">>> nearby data count:", data.length);
       setProviders(data);
     } catch (err) {
-      console.log(">>> Nearby providers fetch failed:", err);
       setError("Could not load nearby providers. Pull down to retry.");
     } finally {
       setLoading(false);
       setRefreshing(false);
-      console.log(">>> fetchNearby FINISHED");
     }
   }, []);
 
@@ -96,7 +84,7 @@ export default function NearbyProvidersScreen() {
   };
 
   const renderItem = ({ item }: { item: NearbyProvider }) => (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       style={styles.card}
       onPress={() => router.push({ pathname: "/provider/[id]", params: { id: item.id } })}
     >
@@ -117,16 +105,14 @@ export default function NearbyProvidersScreen() {
   return (
     <View style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>{"< Back"}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Nearby Tradespeople</Text>
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">Nearby Tradespeople</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {loading ? (
         <View style={styles.emptyState}>
-          <ActivityIndicator color="#F5A623" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : (
         <FlatList
@@ -138,7 +124,7 @@ export default function NearbyProvidersScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#F5A623"
+              tintColor={colors.primary}
             />
           }
           ListEmptyComponent={
@@ -155,7 +141,7 @@ export default function NearbyProvidersScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -163,8 +149,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text },
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -172,10 +158,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     paddingTop: 60,
   },
-  emptyText: { color: "#999", fontSize: 14, textAlign: "center" },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: "center" },
   list: { paddingHorizontal: 20, paddingBottom: 40 },
   card: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 16,
     marginBottom: 12,
@@ -185,15 +171,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  username: { fontSize: 16, fontWeight: "700", color: "#FAF7F2" },
+  username: { fontSize: 16, fontWeight: "700", color: colors.text },
   verifiedBadge: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  verifiedText: { fontSize: 11, fontWeight: "700", color: "#1C1C1E" },
-  bio: { fontSize: 14, color: "#ccc", marginTop: 6 },
-  location: { fontSize: 13, color: "#999", marginTop: 8 },
-  distance: { fontSize: 13, color: "#F5A623", fontWeight: "700", marginTop: 4 },
+  verifiedText: { fontSize: 11, fontWeight: "700", color: colors.onPrimary },
+  bio: { fontSize: 14, color: colors.textSecondary, marginTop: 6 },
+  location: { fontSize: 13, color: colors.textMuted, marginTop: 8 },
+  distance: { fontSize: 13, color: colors.primary, fontWeight: "700", marginTop: 4 },
 });

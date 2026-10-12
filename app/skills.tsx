@@ -1,5 +1,5 @@
 import { useRouter, useFocusEffect } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../utils/tokenStorage";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../constants/theme";
+import BackButton from "../components/BackButton";
 import { API_BASE_URL } from "../config/api";
 
 export default function SkillsScreen() {
@@ -21,7 +23,7 @@ export default function SkillsScreen() {
   const fetchMySkills = async () => {
     try {
       setLoading(true);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const response = await fetch(`${API_BASE_URL}/app/gigs/?mine=true`, {
         headers: {
@@ -54,20 +56,14 @@ export default function SkillsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Text style={styles.backText}>{"< Back"}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>My Skills</Text>
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">My Skills</Text>
         <View style={{ width: 50 }} />
       </View>
 
       {loading ? (
         <View style={styles.emptyState}>
-          <ActivityIndicator color="#F5A623" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : skills.length === 0 ? (
         <View style={styles.emptyState}>
@@ -76,7 +72,7 @@ export default function SkillsScreen() {
           <Text style={styles.emptySub}>
             Add a service you offer to start getting hired
           </Text>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.addButton}
             onPress={() => router.push("/add-skill")}
           >
@@ -89,24 +85,29 @@ export default function SkillsScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.card}
               onPress={() => router.push(`/gig/${item.id}?mine=true`)}
             >
               {item.image ? (
-                <Image source={{ uri: item.image }} style={styles.cardImage} />
+                <Image
+                  source={{ uri: item.image }}
+                  style={styles.cardImage}
+                  accessible
+                  accessibilityLabel={`Photo for ${item.title}`}
+                />
               ) : (
                 <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
               )}
               <View style={styles.cardInfo}>
                 <Text style={styles.cardTitle}>{item.title}</Text>
                 <Text style={styles.cardLocation}>{item.location}</Text>
-                <Text style={styles.cardPrice}>₦{item.price}</Text>
+                <Text style={styles.cardPrice}>Price negotiable</Text>
               </View>
             </TouchableOpacity>
           )}
           ListFooterComponent={
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.addButtonFooter}
               onPress={() => router.push("/add-skill")}
             >
@@ -120,7 +121,7 @@ export default function SkillsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -132,8 +133,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingRight: 12,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text },
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -144,23 +145,23 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: "600",
-    color: "#FAF7F2",
+    color: colors.text,
     marginBottom: 6,
   },
   emptySub: {
     fontSize: 13,
-    color: "#999",
+    color: colors.textMuted,
     textAlign: "center",
     marginBottom: 24,
   },
   addButton: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
   },
   addButtonFooter: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 10,
@@ -168,19 +169,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginHorizontal: 20,
   },
-  addButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 14 },
+  addButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 14 },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
   card: {
     flexDirection: "row",
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: 14,
     overflow: "hidden",
   },
   cardImage: { width: 90, height: 90 },
-  cardImagePlaceholder: { backgroundColor: "#3A3A3C" },
+  cardImagePlaceholder: { backgroundColor: colors.border },
   cardInfo: { flex: 1, padding: 12, justifyContent: "center" },
-  cardTitle: { color: "#FAF7F2", fontSize: 15, fontWeight: "600" },
-  cardLocation: { color: "#999", fontSize: 12, marginTop: 4 },
-  cardPrice: { color: "#F5A623", fontSize: 14, fontWeight: "700", marginTop: 6 },
+  cardTitle: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  cardLocation: { color: colors.textMuted, fontSize: 12, marginTop: 4 },
+  cardPrice: { color: colors.textMuted, fontSize: 13, fontStyle: "italic", marginTop: 6 },
 });

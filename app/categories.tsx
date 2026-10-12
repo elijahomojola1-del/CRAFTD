@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BackButton from '../components/BackButton';
+import { colors } from '../constants/theme';
 
 const CATEGORIES = [
   { name: 'Design', slug: 'design', icon: '🎨' },
@@ -24,20 +26,19 @@ export default function CategoriesScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>{'< Back'}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Browse Categories</Text>
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">Browse Categories</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.grid}>
         {CATEGORIES.map((cat) => (
           <TouchableOpacity
+            accessibilityRole="button"
             key={cat.slug}
             style={styles.tile}
-            onPress={() => router.push(`/gigss?category=${encodeURIComponent(cat.slug)}`)}
+            onPress={() => router.push(`/gigs?category=${encodeURIComponent(cat.slug)}`)}
           >
-            <Text style={styles.tileIcon}>{cat.icon}</Text>
+            <Text style={styles.tileIcon} aria-hidden>{cat.icon}</Text>
             <Text style={styles.tileText}>{cat.name}</Text>
           </TouchableOpacity>
         ))}
@@ -55,8 +56,7 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  backButton: { color: '#F5A623', fontSize: 15, marginRight: 16, fontWeight: '500' },
-  title: { color: '#FAF7F2', fontSize: 20, fontWeight: '700' },
+  title: { color: colors.text, fontSize: 20, fontWeight: '700', marginLeft: 4 },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -66,12 +66,12 @@ const styles = StyleSheet.create({
   },
   tile: {
     width: '48%',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.background,
     borderRadius: 14,
     paddingVertical: 24,
     alignItems: 'center',
     marginBottom: 14,
   },
   tileIcon: { fontSize: 28, marginBottom: 10 },
-  tileText: { color: '#FAF7F2', fontSize: 14, fontWeight: '600' },
+  tileText: { color: colors.text, fontSize: 14, fontWeight: '600' },
 });

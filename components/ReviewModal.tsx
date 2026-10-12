@@ -1,8 +1,7 @@
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../utils/tokenStorage";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   StyleSheet,
   Text,
@@ -10,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../constants/theme";
+import { Alert } from "../utils/alert";
 import { API_BASE_URL } from "../config/api";
 
 interface ReviewModalProps {
@@ -45,7 +46,7 @@ export default function ReviewModal({
 
     setSubmitting(true);
     try {
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
       const response = await fetch(
         `${API_BASE_URL}/app/bookings/${bookingId}/reviews/`,
         {
@@ -82,17 +83,22 @@ export default function ReviewModal({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={resetAndClose}>
       <View style={styles.overlay}>
         <View style={styles.card}>
-          <Text style={styles.title}>Review {revieweeName}</Text>
+          <Text style={styles.title} accessibilityRole="header">Review {revieweeName}</Text>
           <Text style={styles.sub}>
             How was your experience working with {revieweeName}?
           </Text>
 
           <View style={styles.starRow}>
             {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity key={star} onPress={() => setRating(star)}>
+              <TouchableOpacity accessibilityRole="button"
+                key={star}
+                accessibilityLabel={`${star} star${star === 1 ? "" : "s"}`}
+                accessibilityState={{ selected: star <= rating }}
+                onPress={() => setRating(star)}
+              >
                 <Text style={[styles.star, star <= rating && styles.starActive]}>
                   ★
                 </Text>
@@ -103,26 +109,27 @@ export default function ReviewModal({
           <TextInput
             style={styles.input}
             placeholder="Add a comment (optional)"
-            placeholderTextColor="#999"
+            accessibilityLabel="Review comment, optional"
+            placeholderTextColor={colors.textMuted}
             value={comment}
             onChangeText={setComment}
             multiline
             numberOfLines={4}
           />
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.submitButton}
             onPress={handleSubmit}
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#1C1C1E" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.submitButtonText}>Submit Review</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={resetAndClose} disabled={submitting}>
+          <TouchableOpacity accessibilityRole="button" onPress={resetAndClose} disabled={submitting}>
             <Text style={styles.cancelText}>Not now</Text>
           </TouchableOpacity>
         </View>
@@ -141,39 +148,39 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 24,
   },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2", marginBottom: 6 },
-  sub: { fontSize: 13, color: "#999", marginBottom: 20, lineHeight: 18 },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text, marginBottom: 6 },
+  sub: { fontSize: 13, color: colors.textMuted, marginBottom: 20, lineHeight: 18 },
   starRow: {
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 20,
     gap: 6,
   },
-  star: { fontSize: 36, color: "#555" },
-  starActive: { color: "#F5A623" },
+  star: { fontSize: 36, color: colors.textMuted },
+  starActive: { color: colors.primary },
   input: {
-    backgroundColor: "#1C1C1E",
+    backgroundColor: colors.background,
     borderRadius: 10,
     padding: 14,
-    color: "#FAF7F2",
+    color: colors.text,
     fontSize: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#3A3A3C",
+    borderColor: colors.border,
     height: 90,
     textAlignVertical: "top",
   },
   submitButton: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: "center",
     marginBottom: 14,
   },
-  submitButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 15 },
-  cancelText: { color: "#999", fontSize: 13, textAlign: "center" },
+  submitButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 15 },
+  cancelText: { color: colors.textMuted, fontSize: 13, textAlign: "center" },
 });

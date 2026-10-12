@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../utils/tokenStorage";
 import {
   ActivityIndicator,
   FlatList,
@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import BackButton from "../components/BackButton";
+import { colors } from "../constants/theme";
 import { API_BASE_URL } from "../config/api";
 
 type Conversation = {
@@ -30,7 +32,7 @@ export default function MessagesScreen() {
   const fetchConversations = useCallback(async () => {
     try {
       setError(null);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
       const res = await fetch(`${API_BASE_URL}/app/conversations/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -55,7 +57,7 @@ export default function MessagesScreen() {
   );
 
   const renderItem = ({ item }: { item: Conversation }) => (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       style={styles.row}
       onPress={() =>
         router.push({
@@ -93,19 +95,14 @@ export default function MessagesScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Messages</Text>
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">Messages</Text>
         <View style={{ width: 50 }} />
       </View>
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#F5A623" />
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : error ? (
         <View style={styles.centered}>
@@ -134,7 +131,7 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -143,8 +140,8 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text },
   centered: {
     flex: 1,
     justifyContent: "center",
@@ -155,37 +152,37 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: "600",
-    color: "#FAF7F2",
+    color: colors.text,
     marginBottom: 6,
   },
-  emptySub: { fontSize: 13, color: "#999", textAlign: "center" },
+  emptySub: { fontSize: 13, color: colors.textMuted, textAlign: "center" },
   row: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#2C2C2E",
+    borderBottomColor: colors.surface,
   },
   avatar: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
-  avatarText: { color: "#1C1C1E", fontWeight: "700", fontSize: 18 },
+  avatarText: { color: colors.onPrimary, fontWeight: "700", fontSize: 18 },
   rowContent: { flex: 1 },
   rowTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  name: { color: "#FAF7F2", fontSize: 15, fontWeight: "600" },
-  preview: { color: "#999", fontSize: 13, marginTop: 2 },
+  name: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  preview: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
   badge: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -193,5 +190,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 5,
   },
-  badgeText: { color: "#1C1C1E", fontSize: 11, fontWeight: "700" },
+  badgeText: { color: colors.onPrimary, fontSize: 11, fontWeight: "700" },
 });

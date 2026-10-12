@@ -1,3 +1,5 @@
+import { getToken } from '../../utils/tokenStorage';
+
 // Minimal base64url JWT payload decoder — no atob/Buffer dependency,
 // so it works in the RN/Hermes environment without extra polyfills.
 const BASE64_CHARS =
@@ -41,8 +43,7 @@ export function decodeJwtPayload(token: string): Record<string, any> | null {
 }
 
 export async function getCurrentUserId(): Promise<number | null> {
-  const SecureStore = await import('expo-secure-store');
-  const token = await SecureStore.getItemAsync('accessToken');
+  const token = await getToken();
   if (!token) return null;
   const payload = decodeJwtPayload(token);
   return payload?.user_id ?? null;

@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../../utils/tokenStorage";
 import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../../constants/theme";
+import BackButton from "../../components/BackButton";
 import { API_BASE_URL } from "../../config/api";
 
 type Message = {
@@ -47,9 +49,6 @@ export default function ConversationThreadScreen() {
   const [input, setInput] = useState("");
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
-
-  const getToken = () => SecureStore.getItemAsync("accessToken");
-
   const fetchCurrentUser = async () => {
     try {
       const token = await getToken();
@@ -166,7 +165,10 @@ export default function ConversationThreadScreen() {
               {formatTime(item.created_at)}
             </Text>
             {isMine && (
-              <Text style={styles.readReceipt}>
+              <Text
+                style={styles.readReceipt}
+                accessibilityLabel={item.is_read ? "Read" : "Sent"}
+              >
                 {item.is_read ? "✓✓" : "✓"}
               </Text>
             )}
@@ -180,14 +182,13 @@ export default function ConversationThreadScreen() {
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton />
 
-        <TouchableOpacity onPress={handleViewProfile} activeOpacity={0.7}>
+        <TouchableOpacity accessibilityRole="button"
+          accessibilityLabel={`${otherUsername ?? "Chat"}. View profile`}
+          onPress={handleViewProfile}
+          activeOpacity={0.7}
+        >
           <Text style={styles.title}>{otherUsername ?? "Chat"}</Text>
           {otherUserId && (
             <Text style={styles.viewProfile}>View Profile →</Text>
@@ -199,7 +200,7 @@ export default function ConversationThreadScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#F5A623" />
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -230,7 +231,8 @@ export default function ConversationThreadScreen() {
               value={input}
               onChangeText={setInput}
               placeholder="Type a message..."
-              placeholderTextColor="#777"
+              accessibilityLabel="Message"
+              placeholderTextColor={colors.textMuted}
               multiline
               onFocus={() =>
                 setTimeout(
@@ -239,7 +241,8 @@ export default function ConversationThreadScreen() {
                 )
               }
             />
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
+              accessibilityLabel="Send message"
               style={[
                 styles.sendButton,
                 (!input.trim() || sending) && styles.sendButtonDisabled,
@@ -259,7 +262,7 @@ export default function ConversationThreadScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -268,18 +271,18 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#2C2C2E",
+    borderBottomColor: colors.surface,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
   title: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#FAF7F2",
+    color: colors.text,
     textAlign: "center",
   },
   viewProfile: {
     fontSize: 11,
-    color: "#F5A623",
+    color: colors.primary,
     textAlign: "center",
     marginTop: 2,
   },
@@ -294,10 +297,10 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 6,
   },
-  bubbleMine: { backgroundColor: "#F5A623", borderBottomRightRadius: 4 },
-  bubbleTheirs: { backgroundColor: "#2C2C2E", borderBottomLeftRadius: 4 },
-  bubbleTextMine: { color: "#1C1C1E", fontSize: 15, fontWeight: "500" },
-  bubbleTextTheirs: { color: "#FAF7F2", fontSize: 15 },
+  bubbleMine: { backgroundColor: colors.primary, borderBottomRightRadius: 4 },
+  bubbleTheirs: { backgroundColor: colors.surface, borderBottomLeftRadius: 4 },
+  bubbleTextMine: { color: colors.onPrimary, fontSize: 15, fontWeight: "500" },
+  bubbleTextTheirs: { color: colors.text, fontSize: 15 },
   metaRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -305,11 +308,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
     gap: 4,
   },
-  timeTextMine: { fontSize: 10, color: "rgba(28,28,30,0.65)" },
-  timeTextTheirs: { fontSize: 10, color: "#666" },
+  timeTextMine: { fontSize: 10, color: "rgba(28,28,30,0.85)" },
+  timeTextTheirs: { fontSize: 10, color: colors.textMuted },
   readReceipt: {
     fontSize: 11,
-    color: "rgba(28,28,30,0.7)",
+    color: "rgba(28,28,30,0.85)",
     fontWeight: "700",
   },
   inputBar: {
@@ -319,13 +322,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: "#2C2C2E",
-    backgroundColor: "#1C1C1E",
+    borderTopColor: colors.surface,
+    backgroundColor: colors.background,
   },
   input: {
     flex: 1,
-    backgroundColor: "#2C2C2E",
-    color: "#FAF7F2",
+    backgroundColor: colors.surface,
+    color: colors.text,
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -335,7 +338,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   sendButton: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     borderRadius: 22,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -343,5 +346,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendButtonDisabled: { opacity: 0.4 },
-  sendButtonText: { color: "#1C1C1E", fontSize: 15, fontWeight: "700" },
+  sendButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: "700" },
 });

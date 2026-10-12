@@ -1,26 +1,27 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '../constants/theme';
 
 export default function RoleSelectScreen() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>How will you use CRAFTD?</Text>
+      <Text style={styles.title} accessibilityRole="header">How will you use CRAFTD?</Text>
 
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.card}
         onPress={() => router.push({ pathname: '/register', params: { role: 'customer' } })}
       >
-        <Text style={styles.cardTitle}>I'm booking a service</Text>
-        <Text style={styles.cardSubtitle}>Find and book trusted pros</Text>
+        <Text style={styles.cardTitle}>I&apos;m booking a service</Text>
+        <Text style={styles.cardSubtitle}>Find and book local pros</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.card}
         onPress={() => router.push({ pathname: '/register', params: { role: 'provider' } })}
       >
-        <Text style={styles.cardTitle}>I'm offering my services</Text>
+        <Text style={styles.cardTitle}>I&apos;m offering my services</Text>
         <Text style={styles.cardSubtitle}>Get bookings from customers</Text>
       </TouchableOpacity>
     </View>
@@ -30,33 +31,33 @@ export default function RoleSelectScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     padding: 24,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FAF7F2',
+    color: colors.text,
     textAlign: 'center',
     marginBottom: 40,
   },
   card: {
-    backgroundColor: '#2A2A2D',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: '#F5A623',
+    borderColor: colors.primary,
     borderRadius: 16,
     padding: 24,
     marginBottom: 20,
   },
   cardTitle: {
-    color: '#F5A623',
+    color: colors.primary,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 6,
   },
   cardSubtitle: {
-    color: '#FAF7F2',
+    color: colors.text,
     fontSize: 14,
   },
 });

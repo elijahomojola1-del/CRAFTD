@@ -1,9 +1,8 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../utils/tokenStorage";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Linking,
@@ -13,18 +12,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import BackButton from "../components/BackButton";
+import { colors } from "../constants/theme";
+import { Alert } from "../utils/alert";
 import ReviewModal from "../components/ReviewModal";
 import { API_BASE_URL } from "../config/api";
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "#F5A623",
-  accepted: "#4CAF50",
-  declined: "#E74C3C",
-  completed: "#3498DB",
-  cancelled: "#999",
+  pending: colors.primary,
+  accepted: colors.success,
+  declined: colors.danger,
+  completed: colors.info,
+  cancelled: colors.textMuted,
 };
 
-const GOLD = "#F5A623";
+const GOLD = colors.primary;
 
 export default function MyBookingsScreen() {
   const router = useRouter();
@@ -38,7 +40,7 @@ export default function MyBookingsScreen() {
   const fetchMyBookings = async () => {
     try {
       setLoading(true);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const response = await fetch(`${API_BASE_URL}/app/bookings/mine/`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -69,7 +71,7 @@ export default function MyBookingsScreen() {
   const cancelBooking = async (bookingId: number) => {
     try {
       setUpdatingId(bookingId);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const response = await fetch(
         `${API_BASE_URL}/app/bookings/${bookingId}/status/`,
@@ -100,7 +102,7 @@ export default function MyBookingsScreen() {
   const deleteBooking = async (bookingId: number) => {
     try {
       setUpdatingId(bookingId);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const response = await fetch(
         `${API_BASE_URL}/app/bookings/${bookingId}/`,
@@ -172,7 +174,7 @@ export default function MyBookingsScreen() {
   const handleDeleteReview = async (reviewId: number) => {
     setDeletingReviewId(reviewId);
     try {
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/app/reviews/${reviewId}/`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -217,7 +219,7 @@ export default function MyBookingsScreen() {
   const handleMessage = async (booking: any) => {
     try {
       setMessagingId(booking.id);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const response = await fetch(`${API_BASE_URL}/app/conversations/start/`, {
         method: "POST",
@@ -256,10 +258,8 @@ export default function MyBookingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>{"< Back"}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>My Requests</Text>
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">My Bookings</Text>
         <View style={{ width: 50 }} />
       </View>
 
@@ -283,7 +283,12 @@ export default function MyBookingsScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               {item.gig_image ? (
-                <Image source={{ uri: item.gig_image }} style={styles.cardImage} />
+                <Image
+                  source={{ uri: item.gig_image }}
+                  style={styles.cardImage}
+                  accessible
+                  accessibilityLabel={`Photo for ${item.gig_title || "gig"}`}
+                />
               ) : (
                 <View style={[styles.cardImage, styles.cardImagePlaceholder]} />
               )}
@@ -304,7 +309,7 @@ export default function MyBookingsScreen() {
                 <View
                   style={[
                     styles.statusBadge,
-                    { backgroundColor: STATUS_COLORS[item.status] || "#999" },
+                    { backgroundColor: STATUS_COLORS[item.status] || colors.textMuted },
                   ]}
                 >
                   <Text style={styles.statusText}>
@@ -314,14 +319,14 @@ export default function MyBookingsScreen() {
 
                 {item.status === "accepted" && (
                   <View style={styles.actionRow}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.actionButton, styles.callButton]}
                       onPress={() => handleCall(item.provider_phone)}
                     >
                       <Text style={styles.callButtonText}>📞 Call</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.actionButton, styles.whatsappButton]}
                       onPress={() => handleWhatsApp(item.provider_phone)}
                     >
@@ -332,13 +337,13 @@ export default function MyBookingsScreen() {
 
                 {item.status === "accepted" && (
                   <View style={styles.actionRow}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.actionButton, styles.messageButton]}
                       onPress={() => handleMessage(item)}
                       disabled={messagingId === item.id}
                     >
                       {messagingId === item.id ? (
-                        <ActivityIndicator size="small" color="#1C1C1E" />
+                        <ActivityIndicator size="small" color={colors.onPrimary} />
                       ) : (
                         <Text style={styles.messageButtonText}>💬 Message</Text>
                       )}
@@ -348,13 +353,13 @@ export default function MyBookingsScreen() {
 
                 <View style={styles.actionRow}>
                   {(item.status === "pending" || item.status === "accepted") && (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={[styles.actionButton, styles.cancelButton]}
                       onPress={() => confirmCancel(item.id)}
                       disabled={updatingId === item.id}
                     >
                       {updatingId === item.id ? (
-                        <ActivityIndicator size="small" color="#E74C3C" />
+                        <ActivityIndicator size="small" color={colors.danger} />
                       ) : (
                         <Text style={styles.cancelButtonText}>Cancel</Text>
                       )}
@@ -363,13 +368,13 @@ export default function MyBookingsScreen() {
 
                   {item.status === "completed" && (
                     item.review_id ? (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         style={[styles.actionButton, styles.deleteReviewButton]}
                         onPress={() => confirmDeleteReview(item.review_id)}
                         disabled={deletingReviewId === item.review_id}
                       >
                         {deletingReviewId === item.review_id ? (
-                          <ActivityIndicator size="small" color="#E74C3C" />
+                          <ActivityIndicator size="small" color={colors.danger} />
                         ) : (
                           <Text style={styles.deleteReviewButtonText}>
                             Delete Review
@@ -377,7 +382,7 @@ export default function MyBookingsScreen() {
                         )}
                       </TouchableOpacity>
                     ) : (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         style={[styles.actionButton, styles.reviewButton]}
                         onPress={() => setReviewTarget(item)}
                       >
@@ -388,13 +393,13 @@ export default function MyBookingsScreen() {
                     )
                   )}
 
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[styles.actionButton, styles.deleteButton]}
                     onPress={() => confirmDelete(item.id)}
                     disabled={updatingId === item.id}
                   >
                     {updatingId === item.id ? (
-                      <ActivityIndicator size="small" color="#999" />
+                      <ActivityIndicator size="small" color={colors.textMuted} />
                     ) : (
                       <Text style={styles.deleteButtonText}>Delete</Text>
                     )}
@@ -423,7 +428,7 @@ export default function MyBookingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -432,7 +437,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   backText: { color: GOLD, fontSize: 15, fontWeight: "600" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text },
   emptyState: {
     flex: 1,
     justifyContent: "center",
@@ -440,17 +445,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyIcon: { fontSize: 48, marginBottom: 16 },
-  emptyTitle: { fontSize: 17, fontWeight: "600", color: "#FAF7F2", marginBottom: 6 },
+  emptyTitle: { fontSize: 17, fontWeight: "600", color: colors.text, marginBottom: 6 },
   emptySub: {
     fontSize: 13,
-    color: "#999",
+    color: colors.textMuted,
     textAlign: "center",
     marginBottom: 24,
   },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
   card: {
     flexDirection: "row",
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 12,
     marginBottom: 14,
     overflow: "hidden",
@@ -458,12 +463,12 @@ const styles = StyleSheet.create({
     borderLeftColor: GOLD,
   },
   cardImage: { width: 90, height: 90 },
-  cardImagePlaceholder: { backgroundColor: "#3A3A3C" },
+  cardImagePlaceholder: { backgroundColor: colors.border },
   cardInfo: { flex: 1, padding: 12, justifyContent: "center" },
-  cardTitle: { color: "#FAF7F2", fontSize: 17, fontWeight: "600" },
+  cardTitle: { color: colors.text, fontSize: 17, fontWeight: "600" },
   cardProvider: { color: GOLD, fontSize: 14, fontWeight: "600" },
-  cardDate: { color: "#999", fontSize: 13, marginTop: 2, fontWeight: "600" },
-  cardMessage: { color: "#999", fontSize: 13, marginTop: 4 },
+  cardDate: { color: colors.textMuted, fontSize: 13, marginTop: 2, fontWeight: "600" },
+  cardMessage: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
   statusBadge: {
     alignSelf: "flex-start",
     paddingHorizontal: 8,
@@ -471,7 +476,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginTop: 6,
   },
-  statusText: { fontSize: 11, fontWeight: "700", color: "#1C1C1E" },
+  statusText: { fontSize: 11, fontWeight: "700", color: colors.onPrimary },
   actionRow: {
     flexDirection: "row",
     marginTop: 10,
@@ -487,25 +492,25 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#E74C3C",
+    borderColor: colors.danger,
   },
-  cancelButtonText: { color: "#E74C3C", fontWeight: "700", fontSize: 13 },
+  cancelButtonText: { color: colors.danger, fontWeight: "700", fontSize: 13 },
   reviewButton: {
     backgroundColor: GOLD,
   },
-  reviewButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 13 },
+  reviewButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 13 },
   deleteReviewButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#E74C3C",
+    borderColor: colors.danger,
   },
-  deleteReviewButtonText: { color: "#E74C3C", fontWeight: "700", fontSize: 13 },
+  deleteReviewButtonText: { color: colors.danger, fontWeight: "700", fontSize: 13 },
   deleteButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#555",
+    borderColor: colors.textMuted,
   },
-  deleteButtonText: { color: "#999", fontWeight: "700", fontSize: 13 },
+  deleteButtonText: { color: colors.textMuted, fontWeight: "700", fontSize: 13 },
   callButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
@@ -513,11 +518,11 @@ const styles = StyleSheet.create({
   },
   callButtonText: { color: GOLD, fontWeight: "700", fontSize: 13 },
   whatsappButton: {
-    backgroundColor: "#25D366",
+    backgroundColor: colors.whatsapp,
   },
-  whatsappButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 13 },
+  whatsappButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 13 },
   messageButton: {
     backgroundColor: GOLD,
   },
-  messageButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 13 },
+  messageButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 13 },
 });

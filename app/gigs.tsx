@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '../constants/theme';
+import BackButton from '../components/BackButton';
 import { API_BASE_URL } from '../config/api';
 
 interface Gig {
@@ -63,12 +65,17 @@ export default function GigsListScreen() {
   };
 
   const renderGig = ({ item }: { item: Gig }) => (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       style={styles.card}
       onPress={() => router.push(`/provider/${item.provider}`)}
     >
       {item.image ? (
-        <Image source={{ uri: item.image }} style={styles.thumbnail} />
+        <Image
+          source={{ uri: item.image }}
+          style={styles.thumbnail}
+          accessible
+          accessibilityLabel={`Photo for ${item.title}`}
+        />
       ) : (
         <View style={[styles.thumbnail, styles.thumbnailPlaceholder]} />
       )}
@@ -91,17 +98,15 @@ export default function GigsListScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>{'< Back'}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">
           {category ? category.replace('_', ' ') : 'All Gigs'}
         </Text>
       </View>
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#F5A623" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
         <FlatList
@@ -113,7 +118,7 @@ export default function GigsListScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#F5A623"
+              tintColor={colors.primary}
             />
           }
           ListEmptyComponent={
@@ -128,15 +133,15 @@ export default function GigsListScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#1C1C1E' },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  backButton: { color: '#F5A623', fontSize: 15, fontWeight: '600', marginRight: 16 },
-  title: { color: '#FAF7F2', fontSize: 18, fontWeight: '700', textTransform: 'capitalize' },
+  backButton: { color: colors.primary, fontSize: 15, fontWeight: '600', marginRight: 16 },
+  title: { color: colors.text, fontSize: 18, fontWeight: '700', textTransform: 'capitalize' },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -144,11 +149,11 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     paddingHorizontal: 30,
   },
-  emptyText: { color: '#999', fontSize: 14, textAlign: 'center' },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center' },
   list: { paddingHorizontal: 20, paddingBottom: 40 },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -160,11 +165,11 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   thumbnailPlaceholder: {
-    backgroundColor: '#3A3A3C',
+    backgroundColor: colors.border,
   },
   cardBody: { flex: 1, justifyContent: 'center' },
-  gigTitle: { fontSize: 15, fontWeight: '700', color: '#FAF7F2', marginBottom: 2 },
-  providerName: { fontSize: 13, color: '#999', marginBottom: 4 },
-  rating: { fontSize: 12, color: '#F5A623', fontWeight: '600', marginBottom: 4 },
-  price: { fontSize: 13, fontWeight: '500', color: '#999', fontStyle: 'italic' },
+  gigTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  providerName: { fontSize: 13, color: colors.textMuted, marginBottom: 4 },
+  rating: { fontSize: 12, color: colors.primary, fontWeight: '600', marginBottom: 4 },
+  price: { fontSize: 13, fontWeight: '500', color: colors.textMuted, fontStyle: 'italic' },
 });

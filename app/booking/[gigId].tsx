@@ -1,9 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { getToken } from '../../utils/tokenStorage';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -14,14 +13,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '../../constants/theme';
+import BackButton from '../../components/BackButton';
+import { Alert } from '../../utils/alert';
 import { API_BASE_URL } from '../../config/api';
 
 export default function BookingScreen() {
   const router = useRouter();
-  const { gigId, gigTitle, gigPrice } = useLocalSearchParams<{
+  const { gigId, gigTitle } = useLocalSearchParams<{
     gigId: string;
     gigTitle: string;
-    gigPrice: string;
   }>();
 
   const [proposedDate, setProposedDate] = useState('');
@@ -41,7 +42,7 @@ const toISODate = (input: string) => {
 
     setSubmitting(true);
     try {
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/app/bookings/`, {
         method: 'POST',
         headers: {
@@ -76,17 +77,15 @@ const toISODate = (input: string) => {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>{'< Back'}</Text>
-        </TouchableOpacity>
+        <BackButton />
       </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>Book This Gig</Text>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <Text style={styles.title} accessibilityRole="header">Book This Gig</Text>
           <Text style={styles.gigTitle}>{gigTitle}</Text>
           <Text style={styles.gigPrice}>Price negotiable — discuss with provider</Text>
 
@@ -94,7 +93,9 @@ const toISODate = (input: string) => {
           <TextInput
             style={styles.input}
             placeholder="e.g. 15-07-2026"
-            placeholderTextColor="#999"
+            accessibilityLabel="Proposed date, as day, month, year"
+            returnKeyType="next"
+            placeholderTextColor={colors.textMuted}
             value={proposedDate}
             onChangeText={setProposedDate}
           />
@@ -103,20 +104,21 @@ const toISODate = (input: string) => {
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Add any details for the provider..."
-            placeholderTextColor="#999"
+            accessibilityLabel="Message to the provider, optional"
+            placeholderTextColor={colors.textMuted}
             value={message}
             onChangeText={setMessage}
             multiline
             numberOfLines={5}
           />
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.submitButton}
             onPress={handleSubmit}
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#1C1C1E" />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <Text style={styles.submitButtonText}>Send Booking Request</Text>
             )}
@@ -128,17 +130,17 @@ const toISODate = (input: string) => {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#1C1C1E' },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 12 },
-  backButton: { color: '#F5A623', fontSize: 16 },
+  backButton: { color: colors.primary, fontSize: 16 },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
-  title: { color: '#FAF7F2', fontSize: 22, fontWeight: '700', marginTop: 16, marginBottom: 4 },
-  gigTitle: { color: '#FAF7F2', fontSize: 16, marginBottom: 2 },
-  gigPrice: { color: '#999', fontSize: 14, fontStyle: 'italic', marginBottom: 24 },
-  label: { color: '#F5A623', fontSize: 13, fontWeight: '700', marginBottom: 6, marginTop: 12 },
+  title: { color: colors.text, fontSize: 22, fontWeight: '700', marginTop: 16, marginBottom: 4 },
+  gigTitle: { color: colors.text, fontSize: 16, marginBottom: 2 },
+  gigPrice: { color: colors.textMuted, fontSize: 14, fontStyle: 'italic', marginBottom: 24 },
+  label: { color: colors.primary, fontSize: 13, fontWeight: '700', marginBottom: 6, marginTop: 12 },
   input: {
-    backgroundColor: '#2C2C2E',
-    color: '#FAF7F2',
+    backgroundColor: colors.surface,
+    color: colors.text,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -146,11 +148,11 @@ const styles = StyleSheet.create({
   },
   textArea: { height: 110, textAlignVertical: 'top' },
   submitButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 28,
   },
-  submitButtonText: { color: '#1C1C1E', fontSize: 16, fontWeight: '700' },
+  submitButtonText: { color: colors.onPrimary, fontSize: 16, fontWeight: '700' },
 });

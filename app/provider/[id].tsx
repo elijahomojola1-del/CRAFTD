@@ -1,9 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../../utils/tokenStorage";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../../constants/theme";
+import BackButton from "../../components/BackButton";
+import { Alert } from "../../utils/alert";
 import { API_BASE_URL } from "../../config/api";
 
 interface Gig {
@@ -85,7 +87,7 @@ export default function ProviderDetailScreen() {
   const fetchProvider = useCallback(async () => {
     try {
       setError(null);
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
       setCurrentUserId(decodeUserIdFromToken(token));
 
       const res = await fetch(`${API_BASE_URL}/app/provider/${id}/`, {
@@ -108,7 +110,6 @@ export default function ProviderDetailScreen() {
         setReviews(reviewsData);
       }
     } catch (err) {
-      console.log("Fetching provider with id:", id, "URL:", `${API_BASE_URL}/app/provider/${id}/`);
       setError("Could not load this profile. Pull down to retry, or go back.");
     } finally {
       setLoading(false);
@@ -130,7 +131,7 @@ export default function ProviderDetailScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              const token = await SecureStore.getItemAsync("accessToken");
+              const token = await getToken();
               const res = await fetch(`${API_BASE_URL}/app/reviews/${reviewId}/`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
@@ -155,7 +156,7 @@ export default function ProviderDetailScreen() {
     return (
       <View style={styles.safe}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#F5A623" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </View>
     );
@@ -165,9 +166,7 @@ export default function ProviderDetailScreen() {
     return (
       <View style={styles.safe}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backText}>{"< Back"}</Text>
-          </TouchableOpacity>
+          <BackButton />
         </View>
         <View style={styles.centered}>
           <Text style={styles.errorText}>{error || "Profile not found."}</Text>
@@ -179,15 +178,18 @@ export default function ProviderDetailScreen() {
   return (
     <View style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backText}>{"< Back"}</Text>
-        </TouchableOpacity>
+        <BackButton />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.profileSection}>
           {provider.profile_picture ? (
-            <Image source={{ uri: provider.profile_picture }} style={styles.avatar} />
+            <Image
+              source={{ uri: provider.profile_picture }}
+              style={styles.avatar}
+              accessible
+              accessibilityLabel={`Profile photo of ${provider.username}`}
+            />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <Text style={styles.avatarInitial}>
@@ -227,9 +229,11 @@ export default function ProviderDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Portfolio</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {provider.portfolio.map((item) => (
+              {provider.portfolio.map((item, index) => (
                 <Image
                   key={item.id}
+                  accessible
+                  accessibilityLabel={`Portfolio photo ${index + 1} by ${provider.username}`}
                   source={{ uri: item.image }}
                   style={styles.portfolioImage}
                 />
@@ -242,7 +246,7 @@ export default function ProviderDetailScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Services</Text>
             {provider.gigs.map((gig) => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={gig.id}
                 style={styles.gigCard}
                 onPress={() =>
@@ -251,7 +255,6 @@ export default function ProviderDetailScreen() {
                     params: {
                       gigId: String(gig.id),
                       gigTitle: gig.title,
-                      gigPrice: gig.price,
                     },
                   })
                 }
@@ -280,7 +283,8 @@ export default function ProviderDetailScreen() {
                 ) : null}
 
                 {review.reviewer === currentUserId && (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
+                    accessibilityLabel="Delete my review"
                     onPress={() => handleDeleteReview(review.id)}
                     style={styles.deleteButton}
                   >
@@ -297,41 +301,41 @@ export default function ProviderDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 30 },
-  errorText: { color: "#999", fontSize: 14, textAlign: "center" },
+  errorText: { color: colors.textMuted, fontSize: 14, textAlign: "center" },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 60 },
   profileSection: { alignItems: "center", marginBottom: 30 },
   avatar: { width: 90, height: 90, borderRadius: 45, marginBottom: 14 },
   avatarPlaceholder: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     justifyContent: "center",
     alignItems: "center",
   },
-  avatarInitial: { fontSize: 32, fontWeight: "700", color: "#F5A623" },
+  avatarInitial: { fontSize: 32, fontWeight: "700", color: colors.primary },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  username: { fontSize: 20, fontWeight: "700", color: "#FAF7F2" },
+  username: { fontSize: 20, fontWeight: "700", color: colors.text },
   verifiedBadge: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
-  verifiedText: { fontSize: 11, fontWeight: "700", color: "#1C1C1E" },
-  location: { fontSize: 13, color: "#999", marginTop: 6 },
+  verifiedText: { fontSize: 11, fontWeight: "700", color: colors.onPrimary },
+  location: { fontSize: 13, color: colors.textMuted, marginTop: 6 },
   statsRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
-  rating: { fontSize: 15, fontWeight: "700", color: "#F5A623" },
-  reviewCount: { fontSize: 13, color: "#999" },
-  bio: { fontSize: 14, color: "#ccc", marginTop: 14, textAlign: "center", lineHeight: 20 },
+  rating: { fontSize: 15, fontWeight: "700", color: colors.primary },
+  reviewCount: { fontSize: 13, color: colors.textMuted },
+  bio: { fontSize: 14, color: colors.textSecondary, marginTop: 14, textAlign: "center", lineHeight: 20 },
   section: { marginBottom: 28 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#FAF7F2", marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: colors.text, marginBottom: 12 },
   portfolioImage: {
     width: 140,
     height: 140,
@@ -339,16 +343,16 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   gigCard: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
   },
-  gigTitle: { fontSize: 15, fontWeight: "700", color: "#FAF7F2" },
-  gigDescription: { fontSize: 13, color: "#999", marginTop: 4 },
-  gigPrice: { fontSize: 13, fontWeight: "500", color: "#999", marginTop: 6, fontStyle: "italic" },
+  gigTitle: { fontSize: 15, fontWeight: "700", color: colors.text },
+  gigDescription: { fontSize: 13, color: colors.textMuted, marginTop: 4 },
+  gigPrice: { fontSize: 13, fontWeight: "500", color: colors.textMuted, marginTop: 6, fontStyle: "italic" },
   reviewCard: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
@@ -358,9 +362,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  reviewerName: { fontSize: 14, fontWeight: "700", color: "#FAF7F2" },
-  reviewRating: { fontSize: 14, fontWeight: "700", color: "#F5A623" },
-  reviewComment: { fontSize: 13, color: "#ccc", marginTop: 6, lineHeight: 18 },
+  reviewerName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  reviewRating: { fontSize: 14, fontWeight: "700", color: colors.primary },
+  reviewComment: { fontSize: 13, color: colors.textSecondary, marginTop: 6, lineHeight: 18 },
   deleteButton: { marginTop: 10, alignSelf: "flex-start" },
-  deleteText: { color: "#F5A623", fontSize: 13, fontWeight: "600" },
+  deleteText: { color: colors.primary, fontSize: 13, fontWeight: "600" },
 });

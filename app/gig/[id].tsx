@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '../../constants/theme';
+import BackButton from '../../components/BackButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../../config/api';
 
@@ -50,7 +52,7 @@ export default function GigDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#F5A623" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -69,18 +71,22 @@ export default function GigDetailScreen() {
         contentContainerStyle={[styles.content, isOwnGig && styles.contentNoButton]}
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backButton}>{'< Back'}</Text>
-          </TouchableOpacity>
+          <BackButton color="#8A5A00" />
         </View>
 
         {gig.image ? (
-          <Image source={{ uri: gig.image }} style={styles.image} resizeMode="contain" />
+          <Image
+            source={{ uri: gig.image }}
+            style={styles.image}
+            resizeMode="contain"
+            accessible
+            accessibilityLabel={`Photo for ${gig.title}`}
+          />
         ) : (
           <View style={[styles.image, styles.imagePlaceholder]} />
         )}
 
-        <Text style={styles.title}>{gig.title}</Text>
+        <Text style={styles.title} accessibilityRole="header">{gig.title}</Text>
         <Text style={styles.category}>{gig.category}</Text>
         <Text style={styles.price}>Price negotiable</Text>
 
@@ -92,7 +98,7 @@ export default function GigDetailScreen() {
       </ScrollView>
 
       {!isOwnGig && (
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.bookButton}
           onPress={() =>
             router.push({
@@ -100,7 +106,6 @@ export default function GigDetailScreen() {
               params: {
                 gigId: gig.id.toString(),
                 gigTitle: gig.title,
-                gigPrice: gig.price.toString(),
               },
             })
           }
@@ -137,11 +142,6 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 12,
   },
-  backButton: {
-    fontSize: 16,
-    color: '#F5A623',
-    fontWeight: '600',
-  },
   image: {
     width: '100%',
     height: 220,
@@ -161,14 +161,14 @@ const styles = StyleSheet.create({
   },
   category: {
     fontSize: 14,
-    color: '#888',
+    color: '#5F5F63',
     marginBottom: 8,
     textTransform: 'capitalize',
   },
   price: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#888',
+    color: '#5F5F63',
     fontStyle: 'italic',
     marginBottom: 20,
   },
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   bookButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: colors.primary,
     borderRadius: 10,
     padding: 16,
     alignItems: 'center',
@@ -201,6 +201,6 @@ const styles = StyleSheet.create({
   bookButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1C1C1E',
+    color: colors.onPrimary,
   },
 });

@@ -1,9 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { getToken } from '../utils/tokenStorage';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Linking,
   RefreshControl,
@@ -12,6 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { colors } from '../constants/theme';
+import { Alert } from '../utils/alert';
+import BackButton from '../components/BackButton';
 import ReviewModal from '../components/ReviewModal';
 import { API_BASE_URL } from '../config/api';
 
@@ -32,11 +34,11 @@ interface Booking {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: '#F5A623',
-  accepted: '#2ECC71',
-  declined: '#E74C3C',
-  completed: '#3498DB',
-  cancelled: '#7F8C8D',
+  pending: colors.primary,
+  accepted: colors.success,
+  declined: colors.danger,
+  completed: colors.info,
+  cancelled: colors.textMuted,
 };
 
 export default function ReceivedBookingsScreen() {
@@ -51,7 +53,7 @@ export default function ReceivedBookingsScreen() {
 
   const fetchBookings = async () => {
     try {
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/app/bookings/received/`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -91,7 +93,7 @@ export default function ReceivedBookingsScreen() {
   ) => {
     setUpdatingId(bookingId);
     try {
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await getToken();
       const response = await fetch(
         `${API_BASE_URL}/app/bookings/${bookingId}/status/`,
         {
@@ -157,7 +159,7 @@ export default function ReceivedBookingsScreen() {
   const handleMessage = async (booking: Booking) => {
     try {
       setMessagingId(booking.id);
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await getToken();
 
       const response = await fetch(`${API_BASE_URL}/app/conversations/start/`, {
         method: 'POST',
@@ -211,7 +213,7 @@ export default function ReceivedBookingsScreen() {
   const handleDeleteReview = async (reviewId: number) => {
     setDeletingReviewId(reviewId);
     try {
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await getToken();
       const response = await fetch(`${API_BASE_URL}/app/reviews/${reviewId}/`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
@@ -265,25 +267,25 @@ export default function ReceivedBookingsScreen() {
 
       {item.status === 'pending' && (
         <View style={styles.actionRow}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.actionButton, styles.declineButton]}
             onPress={() => handleStatusUpdate(item.id, 'declined')}
             disabled={updatingId === item.id}
           >
             {updatingId === item.id ? (
-              <ActivityIndicator color="#E74C3C" size="small" />
+              <ActivityIndicator color={colors.danger} size="small" />
             ) : (
               <Text style={styles.declineButtonText}>Decline</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.actionButton, styles.acceptButton]}
             onPress={() => handleStatusUpdate(item.id, 'accepted')}
             disabled={updatingId === item.id}
           >
             {updatingId === item.id ? (
-              <ActivityIndicator color="#1C1C1E" size="small" />
+              <ActivityIndicator color={colors.onPrimary} size="small" />
             ) : (
               <Text style={styles.acceptButtonText}>Accept</Text>
             )}
@@ -294,14 +296,14 @@ export default function ReceivedBookingsScreen() {
       {item.status === 'accepted' && (
         <>
           <View style={styles.actionRow}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.actionButton, styles.callButton]}
               onPress={() => handleCall(item.client_phone)}
             >
               <Text style={styles.callButtonText}>📞 Call</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.actionButton, styles.whatsappButton]}
               onPress={() => handleWhatsApp(item.client_phone)}
             >
@@ -310,13 +312,13 @@ export default function ReceivedBookingsScreen() {
           </View>
 
           <View style={styles.actionRow}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.actionButton, styles.messageButton]}
               onPress={() => handleMessage(item)}
               disabled={messagingId === item.id}
             >
               {messagingId === item.id ? (
-                <ActivityIndicator color="#1C1C1E" size="small" />
+                <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
                 <Text style={styles.messageButtonText}>💬 Message</Text>
               )}
@@ -324,13 +326,13 @@ export default function ReceivedBookingsScreen() {
           </View>
 
           <View style={styles.actionRow}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.actionButton, styles.completeButton]}
               onPress={() => confirmMarkComplete(item.id)}
               disabled={updatingId === item.id}
             >
               {updatingId === item.id ? (
-                <ActivityIndicator color="#FAF7F2" size="small" />
+                <ActivityIndicator color={colors.onPrimary} size="small" />
               ) : (
                 <Text style={styles.completeButtonText}>Mark Complete</Text>
               )}
@@ -342,19 +344,19 @@ export default function ReceivedBookingsScreen() {
       {item.status === 'completed' && (
         <View style={styles.actionRow}>
           {item.review_id ? (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.actionButton, styles.deleteReviewButton]}
               onPress={() => confirmDeleteReview(item.review_id!)}
               disabled={deletingReviewId === item.review_id}
             >
               {deletingReviewId === item.review_id ? (
-                <ActivityIndicator color="#E74C3C" size="small" />
+                <ActivityIndicator color={colors.danger} size="small" />
               ) : (
                 <Text style={styles.deleteReviewButtonText}>Delete Review</Text>
               )}
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.actionButton, styles.reviewButton]}
               onPress={() => setReviewTarget(item)}
             >
@@ -369,14 +371,17 @@ export default function ReceivedBookingsScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#F5A623" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Job Requests</Text>
+      <View style={styles.backRow}>
+        <BackButton />
+      </View>
+      <Text style={styles.header} accessibilityRole="header">Job Requests</Text>
       <FlatList
         data={bookings}
         keyExtractor={(item) => item.id.toString()}
@@ -386,7 +391,7 @@ export default function ReceivedBookingsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#F5A623"
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={
@@ -415,7 +420,7 @@ export default function ReceivedBookingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -423,10 +428,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 80,
   },
+  backRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
   header: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FAF7F2',
+    color: colors.text,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 10,
@@ -436,12 +446,12 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   card: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 14,
     borderLeftWidth: 4,
-    borderLeftColor: '#F5A623',
+    borderLeftColor: colors.primary,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -452,7 +462,7 @@ const styles = StyleSheet.create({
   gigTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FAF7F2',
+    color: colors.text,
     flexShrink: 1,
     marginRight: 8,
   },
@@ -462,24 +472,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   statusText: {
-    color: '#1C1C1E',
+    color: colors.onPrimary,
     fontSize: 11,
     fontWeight: '700',
   },
   clientName: {
     fontSize: 14,
-    color: '#999',
+    color: colors.textMuted,
     marginBottom: 4,
   },
   message: {
     fontSize: 14,
-    color: '#ccc',
+    color: colors.textSecondary,
     marginBottom: 8,
     fontStyle: 'italic',
   },
   date: {
     fontSize: 13,
-    color: '#999',
+    color: colors.textMuted,
     marginBottom: 10,
   },
   actionRow: {
@@ -495,69 +505,69 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   acceptButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: colors.primary,
   },
   acceptButtonText: {
-    color: '#1C1C1E',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   declineButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E74C3C',
+    borderColor: colors.danger,
   },
   declineButtonText: {
-    color: '#E74C3C',
+    color: colors.danger,
     fontWeight: '600',
   },
   completeButton: {
-    backgroundColor: '#3498DB',
+    backgroundColor: colors.info,
   },
   completeButtonText: {
-    color: '#FAF7F2',
+    color: colors.onPrimary,
     fontWeight: '600',
   },
   reviewButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: colors.primary,
   },
   reviewButtonText: {
-    color: '#1C1C1E',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   deleteReviewButton: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E74C3C',
+    borderColor: colors.danger,
   },
   deleteReviewButtonText: {
-    color: '#E74C3C',
+    color: colors.danger,
     fontWeight: '700',
   },
   callButton: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#F5A623',
+    borderColor: colors.primary,
   },
   callButtonText: {
-    color: '#F5A623',
+    color: colors.primary,
     fontWeight: '600',
   },
   whatsappButton: {
-    backgroundColor: '#25D366',
+    backgroundColor: colors.whatsapp,
   },
   whatsappButtonText: {
-    color: '#1C1C1E',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   messageButton: {
-    backgroundColor: '#F5A623',
+    backgroundColor: colors.primary,
   },
   messageButtonText: {
-    color: '#1C1C1E',
+    color: colors.onPrimary,
     fontWeight: '700',
   },
   emptyText: {
     fontSize: 15,
-    color: '#999',
+    color: colors.textMuted,
   },
 });

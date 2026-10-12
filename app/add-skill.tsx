@@ -1,9 +1,8 @@
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { getToken } from "../utils/tokenStorage";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../constants/theme";
+import BackButton from "../components/BackButton";
+import { Alert } from "../utils/alert";
 import { API_BASE_URL } from "../config/api";
 
 const CATEGORIES = [
@@ -39,7 +41,6 @@ export default function AddSkillScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string | null>(null);
-  const [price, setPrice] = useState("");
   const [location, setLocation] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,7 +50,7 @@ export default function AddSkillScreen() {
 
   const checkGigLimit = async () => {
     try {
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
       const res = await fetch(`${API_BASE_URL}/app/gigs/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -90,14 +91,10 @@ export default function AddSkillScreen() {
       Alert.alert("Missing category", "Please select a category.");
       return;
     }
-    if (!price.trim() || isNaN(Number(price))) {
-      Alert.alert("Invalid price", "Please enter a valid price.");
-      return;
-    }
 
     setSubmitting(true);
     try {
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await getToken();
 
       const response = await fetch(`${API_BASE_URL}/app/gigs/`, {
         method: "POST",
@@ -109,7 +106,8 @@ export default function AddSkillScreen() {
           title: title.trim(),
           description: description.trim(),
           category,
-          price: Number(price),
+          // Prices are agreed in chat, not listed. The API still requires the field.
+          price: 0,
           location: location.trim(),
         }),
       });
@@ -137,7 +135,7 @@ export default function AddSkillScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#F5A623" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -145,20 +143,18 @@ export default function AddSkillScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.backText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Add a Skill</Text>
+          <BackButton />
+          <Text style={styles.title} accessibilityRole="header">Add a Skill</Text>
           <View style={{ width: 50 }} />
         </View>
 
         {limitReached ? (
           <View style={styles.limitBanner}>
-            <Text style={styles.limitTitle}>You've reached your skill limit</Text>
+            <Text style={styles.limitTitle}>You&apos;ve reached your skill limit</Text>
             <Text style={styles.limitSub}>
-              Each profile can have up to {MAX_GIGS} skills. Remove one from "My Skills" to add a new one.
+              Each profile can have up to {MAX_GIGS} skills. Remove one from My Skills to add a new one.
             </Text>
           </View>
         ) : (
@@ -171,7 +167,9 @@ export default function AddSkillScreen() {
         <TextInput
           style={[styles.input, limitReached && styles.inputDisabled]}
           placeholder="e.g. Custom Suit Tailoring"
-          placeholderTextColor="#999"
+          accessibilityLabel="Skill title"
+          returnKeyType="next"
+          placeholderTextColor={colors.textMuted}
           value={title}
           onChangeText={setTitle}
           editable={!limitReached}
@@ -181,7 +179,8 @@ export default function AddSkillScreen() {
         <TextInput
           style={[styles.input, styles.textArea, limitReached && styles.inputDisabled]}
           placeholder="Describe what you offer..."
-          placeholderTextColor="#999"
+          accessibilityLabel="Description"
+          placeholderTextColor={colors.textMuted}
           value={description}
           onChangeText={setDescription}
           multiline
@@ -194,8 +193,9 @@ export default function AddSkillScreen() {
           {CATEGORIES.map((cat) => {
             const selected = category === cat.value;
             return (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={cat.value}
+                accessibilityState={{ selected, disabled: limitReached }}
                 style={[styles.tile, selected && styles.tileSelected]}
                 onPress={() => !limitReached && setCategory(cat.value)}
                 disabled={limitReached}
@@ -213,28 +213,19 @@ export default function AddSkillScreen() {
           })}
         </View>
 
-        <Text style={styles.label}>Price (₦)</Text>
-        <TextInput
-          style={[styles.input, limitReached && styles.inputDisabled]}
-          placeholder="e.g. 5000"
-          placeholderTextColor="#999"
-          value={price}
-          onChangeText={setPrice}
-          keyboardType="numeric"
-          editable={!limitReached}
-        />
-
         <Text style={styles.label}>Location</Text>
         <TextInput
           style={[styles.input, limitReached && styles.inputDisabled]}
           placeholder="e.g. Lagos"
-          placeholderTextColor="#999"
+          accessibilityLabel="Location"
+          returnKeyType="done"
+          placeholderTextColor={colors.textMuted}
           value={location}
           onChangeText={setLocation}
           editable={!limitReached}
         />
 
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[
             styles.submitButton,
             (submitting || limitReached) && styles.submitButtonDisabled,
@@ -243,7 +234,7 @@ export default function AddSkillScreen() {
           disabled={submitting || limitReached}
         >
           {submitting ? (
-            <ActivityIndicator color="#1C1C1E" />
+            <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.submitButtonText}>
               {limitReached ? "Limit Reached" : "Post Skill"}
@@ -256,7 +247,7 @@ export default function AddSkillScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   container: { padding: 20, paddingBottom: 40 },
   header: {
@@ -265,37 +256,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text },
   limitCounter: {
-    color: "#999",
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "600",
     marginBottom: 8,
   },
   limitBanner: {
-    backgroundColor: "#2A2A2E",
+    backgroundColor: colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#F5A623",
+    borderColor: colors.primary,
     padding: 16,
     marginBottom: 16,
   },
-  limitTitle: { color: "#F5A623", fontSize: 15, fontWeight: "700", marginBottom: 6 },
-  limitSub: { color: "#CFCFCF", fontSize: 13, lineHeight: 18 },
+  limitTitle: { color: colors.primary, fontSize: 15, fontWeight: "700", marginBottom: 6 },
+  limitSub: { color: colors.textSecondary, fontSize: 13, lineHeight: 18 },
   label: {
-    color: "#FAF7F2",
+    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
     marginTop: 16,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: "#2A2A2E",
+    backgroundColor: colors.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#FAF7F2",
+    color: colors.text,
     fontSize: 15,
   },
   inputDisabled: { opacity: 0.4 },
@@ -309,23 +300,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: "#2A2A2E",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#2A2A2E",
+    borderColor: colors.surface,
   },
   tileSelected: {
-    backgroundColor: "#F5A623",
-    borderColor: "#F5A623",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  tileText: { color: "#FAF7F2", fontSize: 13, fontWeight: "500" },
-  tileTextSelected: { color: "#1C1C1E", fontWeight: "700" },
+  tileText: { color: colors.text, fontSize: 13, fontWeight: "500" },
+  tileTextSelected: { color: colors.onPrimary, fontWeight: "700" },
   submitButton: {
-    backgroundColor: "#F5A623",
+    backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 32,
   },
   submitButtonDisabled: { opacity: 0.6 },
-  submitButtonText: { color: "#1C1C1E", fontWeight: "700", fontSize: 15 },
+  submitButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 15 },
 });

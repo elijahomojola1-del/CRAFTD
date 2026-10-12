@@ -1,13 +1,15 @@
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
+import { clearToken } from "../utils/tokenStorage";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { colors } from "../constants/theme";
+import BackButton from "../components/BackButton";
+import { Alert } from "../utils/alert";
 
 interface SettingsRowProps {
   label: string;
@@ -18,11 +20,11 @@ interface SettingsRowProps {
 
 function SettingsRow({ label, onPress, destructive, showChevron = true }: SettingsRowProps) {
   return (
-    <TouchableOpacity style={styles.row} onPress={onPress}>
+    <TouchableOpacity accessibilityRole="button" style={styles.row} onPress={onPress}>
       <Text style={[styles.rowLabel, destructive && styles.rowLabelDestructive]}>
         {label}
       </Text>
-      {showChevron && !destructive && <Text style={styles.chevron}>{">"}</Text>}
+      {showChevron && !destructive && <Text style={styles.chevron} aria-hidden>{">"}</Text>}
     </TouchableOpacity>
   );
 }
@@ -47,7 +49,7 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await SecureStore.deleteItemAsync("accessToken");
+            await clearToken();
             router.replace("/login");
           } catch (err) {
             console.log("Error logging out:", err);
@@ -65,14 +67,8 @@ export default function SettingsScreen() {
   return (
     <View style={styles.safe}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Text style={styles.backText}>{"< Back"}</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Settings</Text>
+        <BackButton />
+        <Text style={styles.title} accessibilityRole="header">Settings</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -96,7 +92,7 @@ export default function SettingsScreen() {
         <SettingsSection title="Support">
           <SettingsRow label="Help & FAQ" onPress={() => comingSoon("Help & FAQ")} />
           <SettingsRow label="Contact Support" onPress={() => comingSoon("Contact Support")} />
-          <SettingsRow label="Terms & Privacy Policy" onPress={() => comingSoon("Terms & Privacy")} />
+          <SettingsRow label="Terms & Privacy Policy" onPress={() => router.push("/terms")} />
         </SettingsSection>
 
         <SettingsSection title="">
@@ -108,7 +104,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1C1C1E" },
+  safe: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -120,20 +116,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingRight: 12,
   },
-  backText: { color: "#F5A623", fontSize: 15, fontWeight: "600" },
-  title: { fontSize: 18, fontWeight: "700", color: "#FAF7F2" },
+  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
+  title: { fontSize: 18, fontWeight: "700", color: colors.text },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   section: { marginBottom: 24 },
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#999",
+    color: colors.textMuted,
     marginBottom: 8,
     marginLeft: 4,
     textTransform: "uppercase",
   },
   sectionBody: {
-    backgroundColor: "#2C2C2E",
+    backgroundColor: colors.surface,
     borderRadius: 12,
     overflow: "hidden",
   },
@@ -144,9 +140,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#3A3A3C",
+    borderBottomColor: colors.border,
   },
-  rowLabel: { fontSize: 15, color: "#FAF7F2", fontWeight: "500" },
-  rowLabelDestructive: { color: "#FF6B6B", fontWeight: "700" },
-  chevron: { fontSize: 16, color: "#666" },
+  rowLabel: { fontSize: 15, color: colors.text, fontWeight: "500" },
+  rowLabelDestructive: { color: colors.danger, fontWeight: "700" },
+  chevron: { fontSize: 16, color: colors.textMuted },
 });
