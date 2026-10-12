@@ -1,6 +1,6 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { getToken } from "../../utils/tokenStorage";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -122,9 +122,13 @@ export default function ProviderDetailScreen() {
     }
   }, [id]);
 
-  useEffect(() => {
-    fetchProvider();
-  }, [fetchProvider]);
+  // Reload each time the profile comes into view, so a review that was just
+  // written or deleted shows in the rating straight away.
+  useFocusEffect(
+    useCallback(() => {
+      fetchProvider();
+    }, [fetchProvider])
+  );
 
   const toggleBlock = async () => {
     if (!provider) return;
