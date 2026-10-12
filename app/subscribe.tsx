@@ -1,10 +1,14 @@
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import BackButton from '../components/BackButton';
 import { formStyles } from '../constants/formStyles';
 import { colors } from '../constants/theme';
 import { apiRequest } from '../utils/api';
+import { readItem, removeItem, writeItem } from '../utils/tokenStorage';
+
+const PENDING_PAYMENT_KEY = 'pendingPaymentReference';
 
 interface Allowance {
   free_limit: number;
@@ -16,6 +20,8 @@ interface Subscription {
   is_subscribed: boolean;
   expires: string | null;
   price_text: string;
+  // True once Paystack is connected and a price is set on the server.
+  payment_available: boolean;
   requested: boolean;
   provider: Allowance;
   client: Allowance;
@@ -44,6 +50,10 @@ export default function SubscribeScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // Paystack sends the user back here with the payment reference in the address.
+  const { reference, trxref } = useLocalSearchParams<{ reference?: string; trxref?: string }>();
+  const [notice, setNotice] = useState('');
+
   const fetchSubscription = useCallback(async () => {
     const result = await apiRequest<Subscription>('/app/subscription/', {
       fallbackError: 'Could not load your subscription.',
@@ -53,11 +63,70 @@ export default function SubscribeScreen() {
     setLoading(false);
   }, []);
 
+  // Ask the server what happened to a payment, then refresh the screen.
+  const confirmPayment = useCallback(
+    async (paymentReference: string) => {
+      const result = await apiRequest('/app/subscription/verify/', {
+        method: 'POST',
+        body: { reference: paymentReference },
+        fallbackError: 'We could not confirm your payment yet.',
+      });
+      await removeItem(PENDING_PAYMENT_KEY);
+      if (!result.ok) {
+        setError(result.error);
+      } else if (result.data?.status === 'success') {
+        setNotice('Payment received. Your subscription is active.');
+      } else if (result.data?.status === 'failed') {
+        setError('That payment did not go through. You have not been charged for a subscription.');
+      } else {
+        setNotice('Your payment is still being confirmed. This page will update once it is.');
+      }
+      await fetchSubscription();
+    },
+    [fetchSubscription]
+  );
+
   useFocusEffect(
     useCallback(() => {
-      fetchSubscription();
-    }, [fetchSubscription])
+      const load = async () => {
+        const returned = reference || trxref || (await readItem(PENDING_PAYMENT_KEY));
+        if (returned) {
+          await confirmPayment(returned);
+        } else {
+          await fetchSubscription();
+        }
+      };
+      load();
+    }, [reference, trxref, confirmPayment, fetchSubscription])
   );
+
+  const payNow = async () => {
+    setError('');
+    setNotice('');
+    setBusy(true);
+    const result = await apiRequest('/app/subscription/pay/', {
+      method: 'POST',
+      fallbackError: 'Could not start the payment. Please try again.',
+    });
+    if (!result.ok || !result.data) {
+      setBusy(false);
+      setError(result.error);
+      return;
+    }
+
+    // Remembered so the payment can be confirmed when the user comes back.
+    await writeItem(PENDING_PAYMENT_KEY, result.data.reference);
+
+    if (Platform.OS === 'web') {
+      window.location.href = result.data.authorization_url;
+      return;
+    }
+
+    // On a phone the checkout opens in an in-app browser; confirm on return.
+    await WebBrowser.openBrowserAsync(result.data.authorization_url);
+    setBusy(false);
+    await confirmPayment(result.data.reference);
+  };
 
   const requestSubscription = async () => {
     setBusy(true);
@@ -88,6 +157,11 @@ export default function SubscribeScreen() {
           {error ? (
             <Text style={formStyles.error} accessibilityRole="alert">
               {error}
+            </Text>
+          ) : null}
+          {notice ? (
+            <Text style={formStyles.success} accessibilityRole="alert">
+              {notice}
             </Text>
           ) : null}
 
@@ -140,17 +214,21 @@ export default function SubscribeScreen() {
                   <TouchableOpacity
                     accessibilityRole="button"
                     style={[formStyles.button, busy && formStyles.buttonDisabled]}
-                    onPress={requestSubscription}
+                    onPress={subscription.payment_available ? payNow : requestSubscription}
                     disabled={busy}
                   >
                     {busy ? (
                       <ActivityIndicator color={colors.onPrimary} />
                     ) : (
-                      <Text style={formStyles.buttonText}>Subscribe</Text>
+                      <Text style={formStyles.buttonText}>
+                        {subscription.payment_available ? 'Subscribe and Pay' : 'Subscribe'}
+                      </Text>
                     )}
                   </TouchableOpacity>
                   <Text style={styles.note}>
-                    Online payment is not available yet. Tap Subscribe and we will contact you to set it up.
+                    {subscription.payment_available
+                      ? 'You will pay securely with Paystack by card, bank transfer or USSD.'
+                      : 'Online payment is not available yet. Tap Subscribe and we will contact you to set it up.'}
                   </Text>
                 </>
               )}

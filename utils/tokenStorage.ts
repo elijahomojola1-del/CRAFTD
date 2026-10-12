@@ -7,14 +7,14 @@ const ACCESS_KEY = 'accessToken';
 const REFRESH_KEY = 'refreshToken';
 
 // expo-secure-store has no web implementation, so web falls back to localStorage.
-async function readItem(key: string): Promise<string | null> {
+export async function readItem(key: string): Promise<string | null> {
   if (Platform.OS === 'web') {
     return localStorage.getItem(key);
   }
   return SecureStore.getItemAsync(key);
 }
 
-async function writeItem(key: string, value: string): Promise<void> {
+export async function writeItem(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') {
     localStorage.setItem(key, value);
     return;
@@ -22,7 +22,7 @@ async function writeItem(key: string, value: string): Promise<void> {
   await SecureStore.setItemAsync(key, value);
 }
 
-async function removeItem(key: string): Promise<void> {
+export async function removeItem(key: string): Promise<void> {
   if (Platform.OS === 'web') {
     localStorage.removeItem(key);
     return;

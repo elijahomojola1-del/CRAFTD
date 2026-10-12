@@ -147,6 +147,7 @@ const PRIVACY: PolicySection[] = [
     heading: "Other services we rely on",
     bullets: [
       "Photo hosting, for the images you upload.",
+      "Paystack, to take subscription payments. You pay on Paystack's own page, so CRAFTD never sees or stores your card details.",
       "Expo and your phone's notification service, to deliver push notifications.",
       "Your device's location service, to work out your city when you allow it.",
       "Your phone's dialler and WhatsApp open only when you tap Call or WhatsApp on a booking.",
