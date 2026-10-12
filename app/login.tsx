@@ -12,7 +12,7 @@ import {
 import { colors } from '../constants/theme';
 import { API_BASE_URL } from '../config/api';
 import { registerForPushNotificationsAsync } from '../utils/registerForPushNotifications';
-import { saveToken } from '../utils/tokenStorage';
+import { saveTokens } from '../utils/tokenStorage';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -43,8 +43,7 @@ export default function LoginScreen() {
         return;
       }
 
-
-      await saveToken(data.access);
+      await saveTokens(data.access, data.refresh);
 
       try {
         const pushToken = await registerForPushNotificationsAsync();
