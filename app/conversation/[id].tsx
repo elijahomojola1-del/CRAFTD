@@ -21,6 +21,7 @@ type Message = {
   id: number;
   sender: number;
   sender_username: string;
+  is_mine: boolean;
   content: string;
   is_read: boolean;
   created_at: string;
@@ -47,22 +48,8 @@ export default function ConversationThreadScreen() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [input, setInput] = useState("");
-  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [sendError, setSendError] = useState("");
   const listRef = useRef<FlatList>(null);
-  const fetchCurrentUser = async () => {
-    try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE_URL}/app/profile/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setCurrentUsername(data.username);
-      }
-    } catch (err) {
-      console.log("fetchCurrentUser error:", err);
-    }
-  };
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -84,8 +71,10 @@ export default function ConversationThreadScreen() {
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      fetchCurrentUser();
       fetchMessages();
+      // Check for new messages while the chat is open.
+      const timer = setInterval(fetchMessages, 5000);
+      return () => clearInterval(timer);
     }, [fetchMessages])
   );
 
@@ -94,6 +83,7 @@ export default function ConversationThreadScreen() {
     if (!content || sending) return;
 
     setSending(true);
+    setSendError("");
     setInput("");
 
     try {
@@ -118,6 +108,7 @@ export default function ConversationThreadScreen() {
     } catch (err) {
       console.log("send error:", err);
       setInput(content);
+      setSendError("Your message was not sent. Check your connection and try again.");
     } finally {
       setSending(false);
     }
@@ -133,10 +124,7 @@ export default function ConversationThreadScreen() {
   };
 
   const renderItem = ({ item }: { item: Message }) => {
-    // ← username comparison — more reliable than JWT decode
-    const isMine =
-      currentUsername != null &&
-      item.sender_username === currentUsername;
+    const isMine = item.is_mine;
 
     return (
       <View
@@ -224,6 +212,12 @@ export default function ConversationThreadScreen() {
               )
             }
           />
+
+          {sendError ? (
+            <Text style={styles.sendError} accessibilityRole="alert">
+              {sendError}
+            </Text>
+          ) : null}
 
           <View style={styles.inputBar}>
             <TextInput
@@ -345,6 +339,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
     justifyContent: "center",
   },
+  sendError: { color: colors.danger, fontSize: 13, paddingHorizontal: 16, paddingBottom: 6 },
   sendButtonDisabled: { opacity: 0.4 },
   sendButtonText: { color: colors.onPrimary, fontSize: 15, fontWeight: "700" },
 });

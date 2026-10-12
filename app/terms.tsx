@@ -72,6 +72,7 @@ const TERMS: PolicySection[] = [
     bullets: [
       "Reviews must reflect a real job booked through CRAFTD.",
       "No abuse, threats, harassment, spam or fraud in chat, reviews or listings.",
+      "You can report anyone from their profile, and block them so they can't book or message you.",
       "We may remove content or suspend accounts that break these rules.",
     ],
   },
@@ -88,7 +89,7 @@ const PRIVACY: PolicySection[] = [
   {
     heading: "What we collect",
     bullets: [
-      "Account: your email address and password.",
+      "Account: your name, email address and password.",
       "Profile: bio, phone number, profile photo, city and state.",
       "Location: your device location, if you allow it, or the city and state you type in.",
       "Listings: gig titles, descriptions, photos and portfolio images.",
@@ -110,9 +111,9 @@ const PRIVACY: PolicySection[] = [
     heading: "What other users can see",
     bullets: [
       "Provider profiles, gigs, portfolio photos, ratings and reviews are visible to other users.",
-      "The email address you registered with is shown as your name on gigs, bookings, reviews and chat.",
+      "The name you choose is shown on your gigs, bookings, reviews and chat. Your email address is not shown to other users.",
       "Your city and state are shown on your profile, and your location is used to tell nearby users how far away you are.",
-      "Your phone number is shared with the other person in a booking so you can call or message each other.",
+      "Your phone number is shared with the other person only once a booking is accepted, so you can call or message each other.",
       "Chat messages are visible to the two people in the conversation, including whether a message has been read.",
     ],
   },
@@ -146,7 +147,7 @@ const PRIVACY: PolicySection[] = [
       "Edit your profile, photos and gigs at any time in the app.",
       "Turn location or notifications off in your phone settings. You can still set your city by hand.",
       "Delete reviews you wrote and photos you uploaded.",
-      "Ask us to delete your account and the data that goes with it.",
+      "Delete your account, and the data that goes with it, at any time in Settings.",
     ],
   },
   {

@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { getToken } from "../utils/tokenStorage";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -32,6 +32,8 @@ export default function HomeScreen() {
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [username, setUsername] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
+  // Clients don't see the provider-only parts (stats, My Skills, My Requests).
+  const [isProvider, setIsProvider] = useState(true);
 
   const saveLocationToProfile = async (data: {
     latitude?: number;
@@ -122,6 +124,7 @@ export default function HomeScreen() {
       const data = await res.json();
       setAvatarUri(data.profile_picture || null);
       setUsername(data.username || "");
+      setIsProvider(data.role !== "client");
     } catch (err) {
       console.log("Failed to fetch avatar:", err);
     }
@@ -151,11 +154,19 @@ export default function HomeScreen() {
 
   useEffect(() => {
     requestLocation();
-    fetchStats();
-    fetchAvatar();
-    fetchUnreadCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reload whenever Home comes back into view, so a changed photo, role or
+  // new message shows without restarting the app.
+  useFocusEffect(
+    useCallback(() => {
+      fetchStats();
+      fetchAvatar();
+      fetchUnreadCount();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   const handleManualSubmit = async () => {
     if (!manualCity.trim() || !manualState.trim()) return;
@@ -216,6 +227,7 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
+        {isProvider && (
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             {statsLoading ? (
@@ -234,9 +246,11 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Reviews</Text>
           </View>
         </View>
+        )}
 
         <Text style={styles.sectionTitle} accessibilityRole="header">Quick Actions</Text>
 
+        {isProvider && (
         <TouchableOpacity accessibilityRole="button" style={styles.actionCard} onPress={() => router.push("/skills")}>
           <Text style={styles.actionIcon} aria-hidden>🛠</Text>
           <View>
@@ -244,6 +258,7 @@ export default function HomeScreen() {
             <Text style={styles.actionSub}>Add or manage your services</Text>
           </View>
         </TouchableOpacity>
+        )}
 
         <TouchableOpacity accessibilityRole="button" style={styles.actionCard} onPress={() => router.push("/categories")}>
           <Text style={styles.actionIcon} aria-hidden>📋</Text>
@@ -253,6 +268,7 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
+        {isProvider && (
         <TouchableOpacity accessibilityRole="button" style={styles.actionCard} onPress={() => router.push("/received-bookings")}>
           <Text style={styles.actionIcon} aria-hidden>📅</Text>
           <View>
@@ -260,6 +276,7 @@ export default function HomeScreen() {
             <Text style={styles.actionSub}>See requests from your clients</Text>
           </View>
         </TouchableOpacity>
+        )}
 
         <TouchableOpacity accessibilityRole="button" style={styles.actionCard} onPress={() => router.push("/my-bookings")}>
           <Text style={styles.actionIcon} aria-hidden>📤</Text>

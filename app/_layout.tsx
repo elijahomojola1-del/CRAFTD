@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { getToken } from "../utils/tokenStorage";
 
 // Screens that can be seen without signing in.
-const PUBLIC_PATHS = ["/", "/login", "/register", "/role-select", "/terms"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/role-select", "/forgot-password", "/terms"];
 
 export default function RootLayout() {
   const router = useRouter();

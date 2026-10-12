@@ -1,8 +1,10 @@
-import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { getToken } from "../utils/tokenStorage";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -14,6 +16,8 @@ import {
 import { colors } from "../constants/theme";
 import BackButton from "../components/BackButton";
 import { Alert } from "../utils/alert";
+import { apiErrorMessage, apiRequest } from "../utils/api";
+import { appendImage } from "../utils/upload";
 import { API_BASE_URL } from "../config/api";
 
 const CATEGORIES = [
@@ -37,101 +41,130 @@ const MAX_GIGS = 3;
 
 export default function AddSkillScreen() {
   const router = useRouter();
+  // With an id this screen edits that skill; without one it adds a new skill.
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const isEditing = !!id;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [location, setLocation] = useState("");
+  // The photo already saved on the server, and a newly picked one (if any).
+  const [existingImage, setExistingImage] = useState<string | null>(null);
+  const [pickedImage, setPickedImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const [checkingLimit, setCheckingLimit] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [gigCount, setGigCount] = useState(0);
-  const limitReached = gigCount >= MAX_GIGS;
+  const limitReached = !isEditing && gigCount >= MAX_GIGS;
 
-  const checkGigLimit = async () => {
-    try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE_URL}/app/gigs/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const count = Array.isArray(data) ? data.length : data.count ?? 0;
-        setGigCount(count);
+  useEffect(() => {
+    const load = async () => {
+      if (isEditing) {
+        const result = await apiRequest(`/app/gigs/${id}/`, {
+          fallbackError: "Could not load this skill.",
+        });
+        if (result.ok && result.data) {
+          setTitle(result.data.title || "");
+          setDescription(result.data.description || "");
+          setCategory(result.data.category || null);
+          setLocation(result.data.location || "");
+          setExistingImage(result.data.image || null);
+        } else {
+          setError(result.error);
+        }
+      } else {
+        const result = await apiRequest("/app/gigs/?mine=true");
+        if (result.ok && Array.isArray(result.data)) {
+          setGigCount(result.data.length);
+        }
       }
-    } catch (err) {
-      console.log("Failed to check gig limit:", err);
-    } finally {
-      setCheckingLimit(false);
+      setLoading(false);
+    };
+    load();
+  }, [id, isEditing]);
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo access to add a photo to your skill.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setPickedImage(result.assets[0].uri);
     }
   };
 
-  useEffect(() => {
-    checkGigLimit();
-  }, []);
-
   const handleSubmit = async () => {
     if (limitReached) {
-      Alert.alert(
-        "Skill limit reached",
-        `You can only have ${MAX_GIGS} skills at a time. Remove one before adding another.`
-      );
+      setError(`You can only have ${MAX_GIGS} skills at a time. Remove one before adding another.`);
       return;
     }
     if (!title.trim()) {
-      Alert.alert("Missing title", "Please enter a title for your skill.");
+      setError("Please enter a title for your skill.");
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Missing description", "Please describe what you offer.");
+      setError("Please describe what you offer.");
       return;
     }
     if (!category) {
-      Alert.alert("Missing category", "Please select a category.");
+      setError("Please select a category.");
       return;
     }
 
+    setError("");
     setSubmitting(true);
     try {
       const token = await getToken();
+      const formData = new FormData();
+      formData.append("title", title.trim());
+      formData.append("description", description.trim());
+      formData.append("category", category);
+      formData.append("location", location.trim());
+      if (pickedImage) {
+        await appendImage(formData, "image", pickedImage, "skill.jpg");
+      }
 
-      const response = await fetch(`${API_BASE_URL}/app/gigs/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim(),
-          category,
-          // Prices are agreed in chat, not listed. The API still requires the field.
-          price: 0,
-          location: location.trim(),
-        }),
-      });
+      const response = await fetch(
+        isEditing ? `${API_BASE_URL}/app/gigs/${id}/` : `${API_BASE_URL}/app/gigs/`,
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.log("Gig creation failed:", response.status, errorText);
-        Alert.alert("Error", "Could not create your skill. Please try again.");
-        setSubmitting(false);
+        const data = await response.json().catch(() => null);
+        setError(apiErrorMessage(data, "Could not save your skill. Please try again."));
         return;
       }
 
-      Alert.alert("Success", "Your skill has been added!", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      // Back to My Skills, which reloads the list.
+      if (isEditing) {
+        router.replace("/skills");
+      } else {
+        router.back();
+      }
     } catch (err) {
-      console.log("Network error creating gig:", err);
-      Alert.alert("Network error", "Could not reach the server. Check your connection.");
+      console.log("Network error saving gig:", err);
+      setError("Could not reach the server. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (checkingLimit) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centered}>
@@ -141,20 +174,24 @@ export default function AddSkillScreen() {
     );
   }
 
+  const photo = pickedImage || existingImage;
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <BackButton />
-          <Text style={styles.title} accessibilityRole="header">Add a Skill</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {isEditing ? "Edit Skill" : "Add a Skill"}
+          </Text>
           <View style={{ width: 50 }} />
         </View>
 
-        {limitReached ? (
+        {isEditing ? null : limitReached ? (
           <View style={styles.limitBanner}>
             <Text style={styles.limitTitle}>You&apos;ve reached your skill limit</Text>
             <Text style={styles.limitSub}>
-              Each profile can have up to {MAX_GIGS} skills. Remove one from My Skills to add a new one.
+              Each profile can have up to {MAX_GIGS} skills. Open one in My Skills and delete it to add a new one.
             </Text>
           </View>
         ) : (
@@ -162,6 +199,22 @@ export default function AddSkillScreen() {
             {gigCount} / {MAX_GIGS} skills used
           </Text>
         )}
+
+        <Text style={styles.label}>Photo</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={photo ? "Change the photo for this skill" : "Add a photo for this skill"}
+          style={[styles.photoBox, limitReached && styles.inputDisabled]}
+          onPress={pickImage}
+          disabled={limitReached}
+        >
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.photo} accessible accessibilityLabel="Skill photo" />
+          ) : (
+            <Text style={styles.photoHint}>+ Add a photo of your work</Text>
+          )}
+        </TouchableOpacity>
+        {photo ? <Text style={styles.photoChange}>Tap the photo to change it</Text> : null}
 
         <Text style={styles.label}>Title</Text>
         <TextInput
@@ -173,6 +226,7 @@ export default function AddSkillScreen() {
           value={title}
           onChangeText={setTitle}
           editable={!limitReached}
+          maxLength={120}
         />
 
         <Text style={styles.label}>Description</Text>
@@ -223,7 +277,14 @@ export default function AddSkillScreen() {
           value={location}
           onChangeText={setLocation}
           editable={!limitReached}
+          maxLength={120}
         />
+
+        {error ? (
+          <Text style={styles.errorText} accessibilityRole="alert">
+            {error}
+          </Text>
+        ) : null}
 
         <TouchableOpacity accessibilityRole="button"
           style={[
@@ -237,7 +298,7 @@ export default function AddSkillScreen() {
             <ActivityIndicator color={colors.onPrimary} />
           ) : (
             <Text style={styles.submitButtonText}>
-              {limitReached ? "Limit Reached" : "Post Skill"}
+              {limitReached ? "Limit Reached" : isEditing ? "Save Changes" : "Post Skill"}
             </Text>
           )}
         </TouchableOpacity>
@@ -256,7 +317,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
-  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
   title: { fontSize: 18, fontWeight: "700", color: colors.text },
   limitCounter: {
     color: colors.textMuted,
@@ -281,6 +341,20 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
+  photoBox: {
+    height: 170,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  photo: { width: "100%", height: "100%" },
+  photoHint: { color: colors.primary, fontSize: 14, fontWeight: "600" },
+  photoChange: { color: colors.textMuted, fontSize: 12, marginTop: 6 },
   input: {
     backgroundColor: colors.surface,
     borderRadius: 10,
@@ -310,12 +384,13 @@ const styles = StyleSheet.create({
   },
   tileText: { color: colors.text, fontSize: 13, fontWeight: "500" },
   tileTextSelected: { color: colors.onPrimary, fontWeight: "700" },
+  errorText: { color: colors.danger, fontSize: 14, marginTop: 20 },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: 10,
     paddingVertical: 16,
     alignItems: "center",
-    marginTop: 32,
+    marginTop: 24,
   },
   submitButtonDisabled: { opacity: 0.6 },
   submitButtonText: { color: colors.onPrimary, fontWeight: "700", fontSize: 15 },

@@ -128,7 +128,13 @@ export default function LoginScreen() {
         <Text style={styles.primaryButtonText}>Log In</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/register')}>
+      <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/forgot-password')}>
+        <Text style={styles.registerText}>
+          <Text style={styles.registerLink}>Forgot password?</Text>
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/role-select')}>
         <Text style={styles.registerText}>
           Don&apos;t have an account? <Text style={styles.registerLink}>Sign up</Text>
         </Text>

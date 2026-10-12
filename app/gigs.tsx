@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -8,12 +8,13 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { colors } from '../constants/theme';
 import BackButton from '../components/BackButton';
-import { API_BASE_URL } from '../config/api';
+import { apiRequest } from '../utils/api';
 
 interface Gig {
   id: number;
@@ -31,33 +32,36 @@ interface Gig {
 }
 
 export default function GigsListScreen() {
-  const { category } = useLocalSearchParams<{ category: string }>();
+  const { category, search: initialSearch } = useLocalSearchParams<{ category?: string; search?: string }>();
   const router = useRouter();
 
   const [gigs, setGigs] = useState<Gig[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  // `query` is what's typed; `search` is what was last submitted.
+  const [query, setQuery] = useState(initialSearch ?? '');
+  const [search, setSearch] = useState(initialSearch ?? '');
 
-  const fetchGigs = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/app/gigs/`);
-      if (!response.ok) throw new Error('Failed to fetch gigs');
-      const data: Gig[] = await response.json();
-      const filtered = category
-        ? data.filter((g) => g.category === category)
-        : data;
-      setGigs(filtered);
-    } catch (err) {
-      console.log('Error fetching gigs:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const fetchGigs = useCallback(async () => {
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (search.trim()) params.set('search', search.trim());
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+
+    const result = await apiRequest<Gig[]>(`/app/gigs/${suffix}`, {
+      fallbackError: 'Could not load gigs. Pull down to try again.',
+    });
+    setError(result.ok ? '' : result.error);
+    if (result.ok && result.data) setGigs(result.data);
+    setLoading(false);
+    setRefreshing(false);
+  }, [category, search]);
 
   useEffect(() => {
+    setLoading(true);
     fetchGigs();
-  }, [category]);
+  }, [fetchGigs]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -104,6 +108,26 @@ export default function GigsListScreen() {
         </Text>
       </View>
 
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder={category ? 'Search this category' : 'Search services or places'}
+          placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Search gigs"
+          returnKeyType="search"
+          autoCapitalize="none"
+          value={query}
+          onChangeText={(text) => {
+            setQuery(text);
+            if (text === '') setSearch('');
+          }}
+          onSubmitEditing={() => setSearch(query)}
+        />
+        <TouchableOpacity accessibilityRole="button" style={styles.searchButton} onPress={() => setSearch(query)}>
+          <Text style={styles.searchButtonText}>Search</Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -123,7 +147,12 @@ export default function GigsListScreen() {
           }
           ListEmptyComponent={
             <View style={styles.centered}>
-              <Text style={styles.emptyText}>No gigs found in this category yet.</Text>
+              <Text style={styles.emptyText} accessibilityRole={error ? 'alert' : undefined}>
+                {error ||
+                  (search.trim()
+                    ? `Nothing found for "${search.trim()}". Try a different word.`
+                    : 'No gigs found in this category yet.')}
+              </Text>
             </View>
           }
         />
@@ -140,7 +169,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  backButton: { color: colors.primary, fontSize: 15, fontWeight: '600', marginRight: 16 },
+  searchRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginBottom: 14 },
+  searchInput: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
+  },
+  searchButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  searchButtonText: { color: colors.onPrimary, fontWeight: '700', fontSize: 14 },
   title: { color: colors.text, fontSize: 18, fontWeight: '700', textTransform: 'capitalize' },
   centered: {
     flex: 1,

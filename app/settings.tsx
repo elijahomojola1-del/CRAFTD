@@ -1,15 +1,21 @@
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { clearToken } from "../utils/tokenStorage";
 import {
+  Linking,
+  Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { colors } from "../constants/theme";
 import BackButton from "../components/BackButton";
+import { BUSINESS } from "../config/business";
 import { Alert } from "../utils/alert";
+import { apiRequest } from "../utils/api";
 
 interface SettingsRowProps {
   label: string;
@@ -60,8 +66,32 @@ export default function SettingsScreen() {
     ]);
   };
 
-  const comingSoon = (feature: string) => {
-    Alert.alert(feature, "This is coming soon.");
+  // "I offer services" switches the account between client and provider.
+  const [isProvider, setIsProvider] = useState(true);
+
+  useEffect(() => {
+    apiRequest("/app/profile/").then((result) => {
+      if (result.ok && result.data) setIsProvider(result.data.role !== "client");
+    });
+  }, []);
+
+  const toggleProvider = async (value: boolean) => {
+    setIsProvider(value);
+    const result = await apiRequest("/app/profile/", {
+      method: "PATCH",
+      body: { role: value ? "provider" : "client" },
+      fallbackError: "Could not update this setting.",
+    });
+    if (!result.ok) {
+      setIsProvider(!value);
+      Alert.alert("Error", result.error);
+    }
+  };
+
+  const contactSupport = () => {
+    Linking.openURL(`mailto:${BUSINESS.supportEmail}?subject=${encodeURIComponent("CRAFTD support")}`).catch(() =>
+      Alert.alert("Contact Support", `Email us at ${BUSINESS.supportEmail}`)
+    );
   };
 
   return (
@@ -75,28 +105,52 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <SettingsSection title="Account">
           <SettingsRow label="Edit Profile" onPress={() => router.push("/profile")} />
-          <SettingsRow label="Change Password" onPress={() => comingSoon("Change Password")} />
+          <SettingsRow label="Change Password" onPress={() => router.push("/change-password")} />
+          <View style={styles.row}>
+            <View style={styles.switchText}>
+              <Text style={styles.rowLabel}>I offer services</Text>
+              <Text style={styles.rowHint}>Show My Skills and Job Requests on Home</Text>
+            </View>
+            <Switch
+              accessibilityLabel="I offer services"
+              value={isProvider}
+              onValueChange={toggleProvider}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor={colors.text}
+            />
+          </View>
         </SettingsSection>
 
-        <SettingsSection title="Notifications">
-          <SettingsRow
-            label="Notification Preferences"
-            onPress={() => comingSoon("Notification Preferences")}
-          />
-        </SettingsSection>
+        {Platform.OS !== "web" && (
+          <SettingsSection title="Notifications">
+            <SettingsRow label="Notification Settings" onPress={() => Linking.openSettings()} />
+          </SettingsSection>
+        )}
 
         <SettingsSection title="Location">
-          <SettingsRow label="Update City & State" onPress={() => comingSoon("Update Location")} />
+          <SettingsRow label="Update City & State" onPress={() => router.push("/edit-location")} />
+        </SettingsSection>
+
+        <SettingsSection title="Privacy & Safety">
+          <SettingsRow label="Blocked Users" onPress={() => router.push("/blocked-users")} />
         </SettingsSection>
 
         <SettingsSection title="Support">
-          <SettingsRow label="Help & FAQ" onPress={() => comingSoon("Help & FAQ")} />
-          <SettingsRow label="Contact Support" onPress={() => comingSoon("Contact Support")} />
+          <SettingsRow label="Help & FAQ" onPress={() => router.push("/help")} />
+          {BUSINESS.supportEmail.trim() !== "" && (
+            <SettingsRow label="Contact Support" onPress={contactSupport} />
+          )}
           <SettingsRow label="Terms & Privacy Policy" onPress={() => router.push("/terms")} />
         </SettingsSection>
 
         <SettingsSection title="">
           <SettingsRow label="Log Out" onPress={handleLogout} destructive showChevron={false} />
+          <SettingsRow
+            label="Delete Account"
+            onPress={() => router.push("/delete-account")}
+            destructive
+            showChevron={false}
+          />
         </SettingsSection>
       </ScrollView>
     </View>
@@ -143,6 +197,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   rowLabel: { fontSize: 15, color: colors.text, fontWeight: "500" },
+  switchText: { flex: 1, paddingRight: 12 },
+  rowHint: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   rowLabelDestructive: { color: colors.danger, fontWeight: "700" },
   chevron: { fontSize: 16, color: colors.textMuted },
 });

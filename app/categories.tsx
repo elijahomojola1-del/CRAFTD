@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import BackButton from '../components/BackButton';
 import { colors } from '../constants/theme';
 
@@ -22,6 +23,12 @@ const CATEGORIES = [
 
 export default function CategoriesScreen() {
   const router = useRouter();
+  const [query, setQuery] = useState('');
+
+  const runSearch = () => {
+    if (!query.trim()) return;
+    router.push(`/gigs?search=${encodeURIComponent(query.trim())}`);
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -30,7 +37,24 @@ export default function CategoriesScreen() {
         <Text style={styles.title} accessibilityRole="header">Browse Categories</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.grid}>
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search all services, e.g. tailor"
+          placeholderTextColor={colors.textMuted}
+          accessibilityLabel="Search all services"
+          returnKeyType="search"
+          autoCapitalize="none"
+          value={query}
+          onChangeText={setQuery}
+          onSubmitEditing={runSearch}
+        />
+        <TouchableOpacity accessibilityRole="button" style={styles.searchButton} onPress={runSearch}>
+          <Text style={styles.searchButtonText}>Search</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">
         {CATEGORIES.map((cat) => (
           <TouchableOpacity
             accessibilityRole="button"
@@ -57,6 +81,23 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   title: { color: colors.text, fontSize: 20, fontWeight: '700', marginLeft: 4 },
+  searchRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginBottom: 16 },
+  searchInput: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
+  },
+  searchButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  searchButtonText: { color: colors.onPrimary, fontWeight: '700', fontSize: 14 },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -11,19 +11,24 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '../constants/theme';
-import { API_BASE_URL } from '../config/api';
+import { apiRequest } from '../utils/api';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  // Set on the "How will you use CRAFTD?" screen; providers is the default.
+  const { role } = useLocalSearchParams<{ role?: string }>();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
   const handleRegister = async () => {
-    if (!email.trim() || !password) {
-      setErrorMessage('Enter your email address and a password.');
+    if (!name.trim() || !email.trim() || !password) {
+      setErrorMessage('Enter your name, your email address and a password.');
       return;
     }
     if (!agreed) {
@@ -31,30 +36,29 @@ export default function RegisterScreen() {
       return;
     }
     setErrorMessage('');
+    setSubmitting(true);
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/app/register/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: email,
-          email: email,
-          password: password,
-        }),
-      });
+    const address = email.trim().toLowerCase();
+    const result = await apiRequest('/app/register/', {
+      method: 'POST',
+      auth: false,
+      body: {
+        username: address,
+        email: address,
+        password,
+        display_name: name.trim(),
+        role: role === 'client' ? 'client' : 'provider',
+      },
+      fallbackError: 'Registration failed. Check your details and try again.',
+    });
+    setSubmitting(false);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErrorMessage(data.detail || 'Registration failed. Check your details and try again.');
-        return;
-      }
-
-      router.replace('/login');
-    } catch (error) {
-      console.error('Registration error:', error);
-      setErrorMessage('Could not connect to the server. Please try again.');
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      return;
     }
+
+    router.replace('/login');
   };
 
   return (
@@ -65,6 +69,22 @@ export default function RegisterScreen() {
       <Text style={styles.title} accessibilityRole="header">Create Account</Text>
 
       <TextInput
+        style={styles.input}
+        placeholder="Your name or business name"
+        placeholderTextColor={colors.textMuted}
+        accessibilityLabel="Your name or business name"
+        autoCapitalize="words"
+        autoComplete="name"
+        textContentType="name"
+        maxLength={80}
+        returnKeyType="next"
+        onSubmitEditing={() => emailRef.current?.focus()}
+        value={name}
+        onChangeText={setName}
+      />
+
+      <TextInput
+        ref={emailRef}
         style={styles.input}
         placeholder="Email address"
         placeholderTextColor={colors.textMuted}
@@ -124,8 +144,13 @@ export default function RegisterScreen() {
         </Text>
       ) : null}
 
-      <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Create Account</Text>
+      <TouchableOpacity
+        accessibilityRole="button"
+        style={[styles.button, submitting && styles.buttonDisabled]}
+        onPress={handleRegister}
+        disabled={submitting}
+      >
+        <Text style={styles.buttonText}>{submitting ? 'Creating account...' : 'Create Account'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/login')}>
@@ -170,6 +195,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  buttonDisabled: { opacity: 0.6 },
   consentRow: {
     flexDirection: 'row',
     alignItems: 'center',

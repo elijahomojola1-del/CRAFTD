@@ -29,7 +29,7 @@ export default function WelcomeScreen() {
       <Text style={styles.logo} accessibilityRole="header">CRAFTD</Text>
       <Text style={styles.tagline}>Find and book skilled pros near you.</Text>
 
-      <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} onPress={() => router.push('/register')}>
+      <TouchableOpacity accessibilityRole="button" style={styles.primaryButton} onPress={() => router.push('/role-select')}>
         <Text style={styles.primaryButtonText}>Get Started</Text>
       </TouchableOpacity>
 

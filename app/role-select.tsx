@@ -11,7 +11,7 @@ export default function RoleSelectScreen() {
 
       <TouchableOpacity accessibilityRole="button"
         style={styles.card}
-        onPress={() => router.push({ pathname: '/register', params: { role: 'customer' } })}
+        onPress={() => router.push({ pathname: '/register', params: { role: 'client' } })}
       >
         <Text style={styles.cardTitle}>I&apos;m booking a service</Text>
         <Text style={styles.cardSubtitle}>Find and book local pros</Text>

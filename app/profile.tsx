@@ -18,6 +18,7 @@ import {
 import BackButton from "../components/BackButton";
 import { colors } from "../constants/theme";
 import { Alert } from "../utils/alert";
+import { appendImage } from "../utils/upload";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE_URL } from "../config/api";
 
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [viewingIndex, setViewingIndex] = useState<number | null>(null);
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
+  const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -63,6 +65,7 @@ export default function ProfileScreen() {
       if (profileRes.ok) {
         const data = await profileRes.json();
         setProfile(data);
+        setDisplayName(data.display_name || "");
         setBio(data.bio || "");
         setLocation(data.location || "");
         setPhoneNumber(data.phone_number || "");
@@ -91,6 +94,7 @@ export default function ProfileScreen() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          display_name: displayName.trim(),
           bio,
           location,
           phone_number: phoneNumber,
@@ -104,6 +108,7 @@ export default function ProfileScreen() {
 
       const data = await response.json();
       setProfile(data);
+      Alert.alert("Saved", "Your profile has been updated.");
     } catch (err) {
       console.log("Error saving profile:", err);
       Alert.alert("Error", "Something went wrong. Please try again.");
@@ -134,18 +139,12 @@ export default function ProfileScreen() {
       const asset = result.assets[0];
 
       const formData = new FormData();
-      formData.append("profile_picture", {
-        uri: asset.uri,
-        name: "avatar.jpg",
-        type: "image/jpeg",
-      } as any);
+      await appendImage(formData, "profile_picture", asset.uri, "avatar.jpg");
 
+      // No Content-Type header: fetch adds it, with the multipart boundary.
       const response = await fetch(`${API_BASE_URL}/app/profile/`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -198,18 +197,11 @@ export default function ProfileScreen() {
       const asset = result.assets[0];
 
       const formData = new FormData();
-      formData.append("image", {
-        uri: asset.uri,
-        name: "portfolio.jpg",
-        type: "image/jpeg",
-      } as any);
+      await appendImage(formData, "image", asset.uri, "portfolio.jpg");
 
       const response = await fetch(`${API_BASE_URL}/app/portfolio/`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -319,6 +311,20 @@ export default function ProfileScreen() {
           <Text style={styles.gigCount}>
             {profile?.gig_count || 0} gig{profile?.gig_count === 1 ? "" : "s"} posted
           </Text>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Name</Text>
+            <TextInput
+              style={styles.input}
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="Your name or business name"
+              accessibilityLabel="Your name or business name"
+              placeholderTextColor={colors.textMuted}
+              autoCapitalize="words"
+              maxLength={80}
+            />
+          </View>
 
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Bio</Text>

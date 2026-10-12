@@ -36,6 +36,7 @@ export default function MyBookingsScreen() {
   const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
   const [messagingId, setMessagingId] = useState<number | null>(null);
   const [reviewTarget, setReviewTarget] = useState<any | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchMyBookings = async () => {
     try {
@@ -48,15 +49,16 @@ export default function MyBookingsScreen() {
 
       if (!response.ok) {
         console.log("Failed to fetch my bookings:", response.status);
-        setBookings([]);
+        setLoadError(true);
         return;
       }
 
       const data = await response.json();
       setBookings(data);
+      setLoadError(false);
     } catch (err) {
       console.log("Error fetching my bookings:", err);
-      setBookings([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -267,6 +269,18 @@ export default function MyBookingsScreen() {
         <View style={styles.emptyState}>
           <ActivityIndicator color={GOLD} size="large" />
         </View>
+      ) : loadError ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle} accessibilityRole="alert">Couldn&apos;t load your bookings</Text>
+          <Text style={styles.emptySub}>Check your connection and try again</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[styles.actionButton, styles.reviewButton, { marginTop: 20, paddingHorizontal: 24 }]}
+            onPress={fetchMyBookings}
+          >
+            <Text style={styles.reviewButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
       ) : bookings.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyIcon}>📋</Text>
@@ -298,7 +312,14 @@ export default function MyBookingsScreen() {
                   to {item.provider_username}
                 </Text>
                 <Text style={styles.cardDate}>
-                  {item.proposed_date || "No date set"}
+                  {item.proposed_date
+                    ? new Date(item.proposed_date).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })
+                    : "No date set"}
                 </Text>
                 {item.message ? (
                   <Text style={styles.cardMessage} numberOfLines={2}>

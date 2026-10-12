@@ -13,6 +13,8 @@ import { colors } from '../../constants/theme';
 import BackButton from '../../components/BackButton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../../config/api';
+import { Alert } from '../../utils/alert';
+import { apiRequest } from '../../utils/api';
 
 interface Gig {
   id: number;
@@ -31,6 +33,32 @@ export default function GigDetailScreen() {
 
   const [gig, setGig] = useState<Gig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteGig = async () => {
+    setDeleting(true);
+    const result = await apiRequest(`/app/gigs/${id}/`, {
+      method: 'DELETE',
+      fallbackError: 'Could not delete this skill. Please try again.',
+    });
+    setDeleting(false);
+    if (!result.ok) {
+      Alert.alert('Error', result.error);
+      return;
+    }
+    router.replace('/skills');
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete this skill?',
+      'Clients will no longer be able to find or book it. Bookings already made for it are removed too.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: deleteGig },
+      ]
+    );
+  };
 
   useEffect(() => {
     const fetchGig = async () => {
@@ -113,11 +141,53 @@ export default function GigDetailScreen() {
           <Text style={styles.bookButtonText}>Book This Gig</Text>
         </TouchableOpacity>
       )}
+
+      {isOwnGig && (
+        <View style={styles.ownerActions}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[styles.ownerButton, styles.editButton]}
+            onPress={() => router.push(`/add-skill?id=${gig.id}`)}
+            disabled={deleting}
+          >
+            <Text style={styles.editButtonText}>Edit Skill</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={[styles.ownerButton, styles.deleteButton]}
+            onPress={confirmDelete}
+            disabled={deleting}
+          >
+            {deleting ? (
+              <ActivityIndicator color="#B3261E" size="small" />
+            ) : (
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  ownerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 8,
+  },
+  ownerButton: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  editButton: { backgroundColor: colors.primary },
+  editButtonText: { fontSize: 15, fontWeight: '700', color: colors.onPrimary },
+  deleteButton: { borderWidth: 1, borderColor: '#B3261E' },
+  deleteButtonText: { fontSize: 15, fontWeight: '700', color: '#B3261E' },
   container: {
     flex: 1,
     backgroundColor: '#FAF7F2',

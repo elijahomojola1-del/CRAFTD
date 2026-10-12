@@ -1,5 +1,4 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { getToken } from '../../utils/tokenStorage';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,8 +14,9 @@ import {
 } from 'react-native';
 import { colors } from '../../constants/theme';
 import BackButton from '../../components/BackButton';
+import DateStrip from '../../components/DateStrip';
 import { Alert } from '../../utils/alert';
-import { API_BASE_URL } from '../../config/api';
+import { apiRequest } from '../../utils/api';
 
 export default function BookingScreen() {
   const router = useRouter();
@@ -25,53 +25,40 @@ export default function BookingScreen() {
     gigTitle: string;
   }>();
 
-  const [proposedDate, setProposedDate] = useState('');
+  // Picked day as YYYY-MM-DD.
+  const [proposedDate, setProposedDate] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-const toISODate = (input: string) => {
-  const [day, month, year] = input.split('-').map((p) => p.trim());
-  const paddedMonth = month.padStart(2, '0');
-  const paddedDay = day.padStart(2, '0');
-  return `${year}-${paddedMonth}-${paddedDay}`;
-};
+  const [error, setError] = useState('');
+
   const handleSubmit = async () => {
-    if (!proposedDate.trim()) {
-      Alert.alert('Missing date', 'Please enter a proposed date.');
+    if (!proposedDate) {
+      setError('Pick a date for the job.');
       return;
     }
 
+    setError('');
     setSubmitting(true);
-    try {
-      const token = await getToken();
-      const response = await fetch(`${API_BASE_URL}/app/bookings/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          gig: Number(gigId),
-          proposed_date: `${toISODate(proposedDate)}T00:00:00`,
-          message,
-        }),
-      });
+    const result = await apiRequest('/app/bookings/', {
+      method: 'POST',
+      body: {
+        gig: Number(gigId),
+        // Midday, so the day never shifts when shown in another time zone.
+        proposed_date: `${proposedDate}T12:00:00`,
+        message: message.trim(),
+      },
+      fallbackError: 'Your request was not sent. Please check your details and try again.',
+    });
+    setSubmitting(false);
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.log('Booking error:', errText);
-        Alert.alert('Booking failed', 'Please check your details and try again.');
-        return;
-      }
-
-      Alert.alert('Request sent', 'Your booking request has been sent.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    } catch (err) {
-      console.log('Booking request error:', err);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    } finally {
-      setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+
+    Alert.alert('Request sent', 'Your booking request has been sent.', [
+      { text: 'OK', onPress: () => router.back() },
+    ]);
   };
 
   return (
@@ -90,15 +77,7 @@ const toISODate = (input: string) => {
           <Text style={styles.gigPrice}>Price negotiable — discuss with provider</Text>
 
           <Text style={styles.label}>Proposed Date</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. 15-07-2026"
-            accessibilityLabel="Proposed date, as day, month, year"
-            returnKeyType="next"
-            placeholderTextColor={colors.textMuted}
-            value={proposedDate}
-            onChangeText={setProposedDate}
-          />
+          <DateStrip value={proposedDate} onChange={setProposedDate} />
 
           <Text style={styles.label}>Message (optional)</Text>
           <TextInput
@@ -111,6 +90,12 @@ const toISODate = (input: string) => {
             multiline
             numberOfLines={5}
           />
+
+          {error ? (
+            <Text style={styles.errorText} accessibilityRole="alert">
+              {error}
+            </Text>
+          ) : null}
 
           <TouchableOpacity accessibilityRole="button"
             style={styles.submitButton}
@@ -130,6 +115,7 @@ const toISODate = (input: string) => {
 }
 
 const styles = StyleSheet.create({
+  errorText: { color: colors.danger, fontSize: 14, marginTop: 16 },
   safe: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingTop: 12 },
   backButton: { color: colors.primary, fontSize: 16 },

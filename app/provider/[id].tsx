@@ -12,7 +12,9 @@ import {
 } from "react-native";
 import { colors } from "../../constants/theme";
 import BackButton from "../../components/BackButton";
+import ReportModal from "../../components/ReportModal";
 import { Alert } from "../../utils/alert";
+import { apiRequest } from "../../utils/api";
 import { API_BASE_URL } from "../../config/api";
 
 interface Gig {
@@ -41,6 +43,8 @@ interface ProviderDetail {
   is_verified: boolean;
   average_rating: number;
   total_reviews: number;
+  is_blocked: boolean;
+  is_me: boolean;
   gigs: Gig[];
   portfolio: PortfolioImage[];
 }
@@ -83,6 +87,8 @@ export default function ProviderDetailScreen() {
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reportVisible, setReportVisible] = useState(false);
+  const [blocking, setBlocking] = useState(false);
 
   const fetchProvider = useCallback(async () => {
     try {
@@ -119,6 +125,36 @@ export default function ProviderDetailScreen() {
   useEffect(() => {
     fetchProvider();
   }, [fetchProvider]);
+
+  const toggleBlock = async () => {
+    if (!provider) return;
+    setBlocking(true);
+    const result = provider.is_blocked
+      ? await apiRequest(`/app/blocks/${provider.id}/`, { method: "DELETE" })
+      : await apiRequest("/app/blocks/", { method: "POST", body: { blocked: provider.id } });
+    setBlocking(false);
+    if (!result.ok) {
+      Alert.alert("Error", result.error);
+      return;
+    }
+    setProvider({ ...provider, is_blocked: !provider.is_blocked });
+  };
+
+  const confirmToggleBlock = () => {
+    if (!provider) return;
+    if (provider.is_blocked) {
+      toggleBlock();
+      return;
+    }
+    Alert.alert(
+      `Block ${provider.username}?`,
+      "They won't be able to book or message you, and you won't see their services. You can undo this in Settings.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Block", style: "destructive", onPress: toggleBlock },
+      ]
+    );
+  };
 
   const handleDeleteReview = (reviewId: number) => {
     Alert.alert(
@@ -177,11 +213,46 @@ export default function ProviderDetailScreen() {
 
   return (
     <View style={styles.safe}>
-      <View style={styles.header}>
+      <View style={[styles.header, styles.headerSpread]}>
         <BackButton />
+        {!provider.is_me && (
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`Report ${provider.username}`}
+              onPress={() => setReportVisible(true)}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+            >
+              <Text style={styles.headerAction}>Report</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={`${provider.is_blocked ? "Unblock" : "Block"} ${provider.username}`}
+              onPress={confirmToggleBlock}
+              disabled={blocking}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+            >
+              <Text style={[styles.headerAction, styles.headerActionDanger]}>
+                {provider.is_blocked ? "Unblock" : "Block"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
+      <ReportModal
+        visible={reportVisible}
+        userId={provider.id}
+        userName={provider.username}
+        onClose={() => setReportVisible(false)}
+      />
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {provider.is_blocked && (
+          <Text style={styles.blockedNote} accessibilityRole="alert">
+            You have blocked {provider.username}. They can&apos;t book or message you.
+          </Text>
+        )}
         <View style={styles.profileSection}>
           {provider.profile_picture ? (
             <Image
@@ -242,7 +313,7 @@ export default function ProviderDetailScreen() {
           </View>
         )}
 
-        {provider.gigs.length > 0 && (
+        {provider.gigs.length > 0 && !provider.is_blocked && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Services</Text>
             {provider.gigs.map((gig) => (
@@ -250,13 +321,15 @@ export default function ProviderDetailScreen() {
                 key={gig.id}
                 style={styles.gigCard}
                 onPress={() =>
-                  router.push({
-                    pathname: "/booking/[gigId]",
-                    params: {
-                      gigId: String(gig.id),
-                      gigTitle: gig.title,
-                    },
-                  })
+                  provider.is_me
+                    ? router.push(`/gig/${gig.id}?mine=true`)
+                    : router.push({
+                        pathname: "/booking/[gigId]",
+                        params: {
+                          gigId: String(gig.id),
+                          gigTitle: gig.title,
+                        },
+                      })
                 }
               >
                 <Text style={styles.gigTitle}>{gig.title}</Text>
@@ -308,7 +381,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  backText: { color: colors.primary, fontSize: 15, fontWeight: "600" },
+  headerSpread: { justifyContent: "space-between" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 20 },
+  headerAction: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
+  headerActionDanger: { color: colors.danger },
+  blockedNote: {
+    color: colors.textSecondary,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 20,
+  },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 30 },
   errorText: { color: colors.textMuted, fontSize: 14, textAlign: "center" },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 60 },

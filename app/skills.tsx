@@ -19,6 +19,7 @@ export default function SkillsScreen() {
   const router = useRouter();
   const [skills, setSkills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchMySkills = async () => {
     try {
@@ -33,15 +34,16 @@ export default function SkillsScreen() {
 
       if (!response.ok) {
         console.log("Failed to fetch my skills:", response.status);
-        setSkills([]);
+        setLoadError(true);
         return;
       }
 
       const data = await response.json();
       setSkills(data);
+      setLoadError(false);
     } catch (err) {
       console.log("Error fetching my skills:", err);
-      setSkills([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -64,6 +66,14 @@ export default function SkillsScreen() {
       {loading ? (
         <View style={styles.emptyState}>
           <ActivityIndicator color={colors.primary} size="large" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle} accessibilityRole="alert">Couldn&apos;t load your skills</Text>
+          <Text style={styles.emptySub}>Check your connection and try again</Text>
+          <TouchableOpacity accessibilityRole="button" style={styles.addButton} onPress={fetchMySkills}>
+            <Text style={styles.addButtonText}>Try Again</Text>
+          </TouchableOpacity>
         </View>
       ) : skills.length === 0 ? (
         <View style={styles.emptyState}>
